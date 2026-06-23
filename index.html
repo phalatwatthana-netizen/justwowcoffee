@@ -641,6 +641,19 @@
                                     </div>
                                     <p class="text-[10px] text-slate-500 mt-2">* ระบบจะจดจำลายเซ็นทั้ง 2 แบบไว้ในเครื่องอัตโนมัติ กดเลือกวงกลมด้านบนเพื่อกำหนดลายเซ็นที่จะพิมพ์</p>
                                 </div>
+
+                                <div class="pt-4 border-t border-slate-200/60 mt-4">
+                                    <h3 class="text-xs font-bold text-slate-700 mb-3 uppercase tracking-wider flex items-center gap-1.5"><svg class="w-3.5 h-3.5 text-mop-medium" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg> แนบสลิปโอนเงิน (แสดงท้ายเอกสาร)</h3>
+                                    <div class="flex items-center gap-3 flex-wrap">
+                                        <input type="file" id="receipt-slip-upload" accept="image/*" multiple class="hidden" onchange="handleReceiptSlipUpload(event)">
+                                        <button type="button" onclick="document.getElementById('receipt-slip-upload').click()" class="btn-glass px-3 py-1.5 text-[10px] sm:text-xs font-bold rounded-[8px] flex items-center gap-1 shadow-sm">
+                                            <svg class="w-4 h-4 text-mop-medium" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg> แนบรูปสลิป
+                                        </button>
+                                        <div id="receipt-slip-preview-ui" class="items-center gap-2 hidden"></div>
+                                        <button type="button" id="receipt-slip-remove-btn" onclick="removeReceiptSlip()" class="text-red-500 text-[10px] font-bold hidden hover:underline">ลบรูปทั้งหมด</button>
+                                    </div>
+                                    <p class="text-[10px] text-slate-500 mt-2">* แนบได้สูงสุด 3 รูป จะแสดงท้ายเอกสารใต้หัวข้อ "สลิปแนบ"</p>
+                                </div>
                             </div>
                         </div>
                     </section>
@@ -691,6 +704,10 @@
                                         </tr>
                                     </tfoot>
                                 </table>
+                                <div id="receipt-preview-slip-container" class="mt-12 text-center hidden flex-col items-center">
+                                    <span class="text-[13px] font-bold text-slate-600 mb-3 border-b border-slate-300 pb-1 px-2">สลิปแนบ (หลักฐานการโอนเงิน)</span>
+                                    <div id="receipt-preview-slip-images" class="flex flex-wrap justify-center gap-4"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1899,6 +1916,80 @@
             updateCertSlipUI();
         }
 
+        // --- RECEIPT SLIP (สลิปแนบท้ายใบเสร็จรับเงิน) ---
+        let currentReceiptSlipImages = [];
+
+        function handleReceiptSlipUpload(event) {
+            const files = event.target.files;
+            if (!files || files.length === 0) return;
+
+            const remainingSlots = 3 - currentReceiptSlipImages.length;
+            if (remainingSlots <= 0) { alert('คุณสามารถแนบสลิปได้สูงสุด 3 รูปเท่านั้น'); return; }
+
+            const filesToProcess = Math.min(files.length, remainingSlots);
+            if (files.length > remainingSlots) alert(`สามารถแนบเพิ่มได้อีก ${remainingSlots} รูป ระบบจะเลือกเฉพาะรูปแรกๆ`);
+
+            for (let i = 0; i < filesToProcess; i++) {
+                const file = files[i];
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        const MAX_WIDTH = 600;
+                        let scaleSize = 1;
+                        if (img.width > MAX_WIDTH) scaleSize = MAX_WIDTH / img.width;
+                        canvas.width = img.width * scaleSize;
+                        canvas.height = img.height * scaleSize;
+                        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                        currentReceiptSlipImages.push(canvas.toDataURL('image/jpeg', 0.8));
+                        updateReceiptSlipUI();
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+            document.getElementById('receipt-slip-upload').value = '';
+        }
+
+        function updateReceiptSlipUI() {
+            const uiPreview = document.getElementById('receipt-slip-preview-ui');
+            const printContainer = document.getElementById('receipt-preview-slip-container');
+            const printImages = document.getElementById('receipt-preview-slip-images');
+            const removeBtn = document.getElementById('receipt-slip-remove-btn');
+            if (!uiPreview || !printContainer || !printImages || !removeBtn) return;
+
+            if (currentReceiptSlipImages.length > 0) {
+                uiPreview.innerHTML = currentReceiptSlipImages.map((src, idx) =>
+                    `<div class="relative group mt-1">
+                        <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-md bg-cover bg-center shadow-sm border border-slate-200" style="background-image: url(${src})"></div>
+                        <button type="button" onclick="removeSingleReceiptSlip(${idx})" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity z-10">x</button>
+                    </div>`
+                ).join('');
+                uiPreview.classList.remove('hidden');
+                uiPreview.classList.add('flex');
+                removeBtn.classList.remove('hidden');
+
+                printImages.innerHTML = currentReceiptSlipImages.map(src =>
+                    `<img src="${src}" class="max-w-[250px] max-h-[350px] object-contain rounded-lg shadow-sm border border-slate-200">`
+                ).join('');
+                printContainer.classList.remove('hidden');
+                printContainer.classList.add('flex');
+            } else {
+                uiPreview.innerHTML = '';
+                uiPreview.classList.add('hidden');
+                uiPreview.classList.remove('flex');
+                removeBtn.classList.add('hidden');
+                printImages.innerHTML = '';
+                printContainer.classList.add('hidden');
+                printContainer.classList.remove('flex');
+            }
+        }
+
+        function removeReceiptSlip() { currentReceiptSlipImages = []; updateReceiptSlipUI(); }
+        function removeSingleReceiptSlip(index) { currentReceiptSlipImages.splice(index, 1); updateReceiptSlipUI(); }
+
         let certificatesData = [];
 
         async function loadCertificates() {
@@ -3003,7 +3094,12 @@
                 const s1 = document.getElementById('sig-select-1'); if(s1) s1.checked = true;
                 selectSignature(1);
             }
-            
+
+            let slipsArr = [];
+            try { slipsArr = typeof receipt.slips === 'string' ? JSON.parse(receipt.slips) : receipt.slips; } catch(e) {}
+            currentReceiptSlipImages = Array.isArray(slipsArr) ? slipsArr.filter(Boolean) : (slipsArr ? [slipsArr] : []);
+            updateReceiptSlipUI();
+
             generateReceiptPreview();
             const btn = document.getElementById('btn-save-receipt'); btn.innerHTML = 'อัปเดตเอกสารเก่า'; btn.classList.replace('bg-[#8ccb4a]', 'bg-mop-dark');
         }
@@ -3046,6 +3142,7 @@
             const customLinkInput = document.getElementById('receipt-custom-link-sig');
             if(customLinkInput) customLinkInput.value = '';
             if(typeof generateReceiptNo === 'function') generateReceiptNo();
+            currentReceiptSlipImages = []; updateReceiptSlipUI();
             generateReceiptPreview();
         }
 
@@ -3066,7 +3163,7 @@
             // ลำดับความสำคัญ: ลิงก์ที่กรอก > ประวัติเก่า > เซ็นสด
             let currentSigData = formattedCustomLink ? formattedCustomLink : (historySig ? historySig : (sigSelection ? localStorage.getItem('jwc_sig_' + sigSelection) : null));
 
-            const newReceipt = { id: currentEditingReceiptId || Date.now().toString(), bookNo, receiptNo, date: getThaiDateTimeStr(new Date()), dateVal, customer, sellerName, sellerTax, sellerPhone, sellerAddress, items: items, total: grandTotal, signature: currentSigData };
+            const newReceipt = { id: currentEditingReceiptId || Date.now().toString(), bookNo, receiptNo, date: getThaiDateTimeStr(new Date()), dateVal, customer, sellerName, sellerTax, sellerPhone, sellerAddress, items: items, total: grandTotal, signature: currentSigData, slips: currentReceiptSlipImages.length > 0 ? [...currentReceiptSlipImages] : null };
             
             if (currentEditingReceiptId) { const idx = receiptsData.findIndex(r => r.id === currentEditingReceiptId); if (idx > -1) receiptsData[idx] = newReceipt; currentEditingReceiptId = null; } 
             else receiptsData.push(newReceipt);
