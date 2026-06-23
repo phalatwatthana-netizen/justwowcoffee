@@ -635,6 +635,12 @@
                                             <a id="receipt-history-sig-link" href="#" target="_blank" class="hidden text-mop-primary hover:text-mop-dark bg-mop-lighter/50 p-2 rounded-xl border border-mop-light/30 transition-colors shadow-sm" title="เปิดดูลายเซ็น"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg></a>
                                         </div>
                                     </div>
+                                    <div class="mt-4">
+                                        <label class="text-[10px] font-bold text-mop-dark uppercase tracking-wide mb-1 flex items-center gap-1.5"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg> หรือ เลือกลายเซ็นจากชีต "sign"</label>
+                                        <select id="receipt-sheet-sig-select" class="input-field !py-2 text-xs" onchange="applySheetSignature(this.value, 'receipt')">
+                                            <option value="">-- เลือกลายเซ็นจากชีต sign --</option>
+                                        </select>
+                                    </div>
                                     <p class="text-[10px] text-slate-500 mt-2">* ระบบจะจดจำลายเซ็นทั้ง 2 แบบไว้ในเครื่องอัตโนมัติ กดเลือกวงกลมด้านบนเพื่อกำหนดลายเซ็นที่จะพิมพ์</p>
                                 </div>
 
@@ -768,6 +774,12 @@
                                     </div>
                                     <div id="cert-slip-preview-ui" class="hidden"></div>
                                 </div>
+                            </div>
+                            <div class="mt-4">
+                                <label class="text-[11px] font-bold text-mop-dark uppercase tracking-wide mb-1 flex items-center gap-1.5"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg> หรือ เลือกลายเซ็นจากชีต "sign"</label>
+                                <select id="cert-sheet-sig-select" class="input-field !py-2 text-xs" onchange="applySheetSignature(this.value, 'cert')">
+                                    <option value="">-- เลือกลายเซ็นจากชีต sign --</option>
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -1056,6 +1068,7 @@
         
         setInterval(updateRealtimeClock, 1000);
         window.addEventListener('DOMContentLoaded', updateRealtimeClock);
+        window.addEventListener('DOMContentLoaded', () => { if (typeof loadSheetSignatures === 'function') loadSheetSignatures(); });
 
         function switchTab(tabId) {
             const tabs = ['home', 'calculator', 'inventory', 'ledger', 'receipt'];
@@ -1092,6 +1105,7 @@
             } else if (tabId === 'receipt') {
                 loadReceipts();
                 loadCertificates();
+                loadSheetSignatures();
             }
 
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1118,9 +1132,10 @@
             loadStock(); 
             loadLedger();
             loadReceipts();
-            loadCertificates(); 
-            loadSettings(); 
-            
+            loadCertificates();
+            loadSettings();
+            loadSheetSignatures();
+
             addIngredientRow();
             addIngredientRow(); 
             initMarginGrid();
@@ -3115,6 +3130,8 @@
             if(customLinkInput) customLinkInput.value = '';
             if(typeof generateReceiptNo === 'function') generateReceiptNo();
             currentReceiptSlipImages = []; updateReceiptSlipUI();
+            selectedSheetSig = null;
+            const sheetSigSel = document.getElementById('receipt-sheet-sig-select'); if(sheetSigSel) sheetSigSel.value = '';
             generateReceiptPreview();
         }
 
@@ -3132,8 +3149,8 @@
             let customLink = document.getElementById('receipt-custom-link-sig')?.value;
             let formattedCustomLink = customLink ? formatDriveLink(customLink) : null;
             
-            // ลำดับความสำคัญ: ลิงก์ที่กรอก > ประวัติเก่า > เซ็นสด
-            let currentSigData = formattedCustomLink ? formattedCustomLink : (historySig ? historySig : (sigSelection ? localStorage.getItem('jwc_sig_' + sigSelection) : null));
+            // ลำดับความสำคัญ: ลิงก์ที่กรอก > ลายเซ็นจากชีต sign > ประวัติเก่า > เซ็นสด
+            let currentSigData = formattedCustomLink ? formattedCustomLink : (selectedSheetSig ? selectedSheetSig : (historySig ? historySig : (sigSelection ? localStorage.getItem('jwc_sig_' + sigSelection) : null)));
 
             const newReceipt = { id: currentEditingReceiptId || Date.now().toString(), bookNo, receiptNo, date: getThaiDateTimeStr(new Date()), dateVal, customer, sellerName, sellerTax, sellerPhone, sellerAddress, items: items, total: grandTotal, signature: currentSigData, slips: currentReceiptSlipImages.length > 0 ? [...currentReceiptSlipImages] : null };
             
@@ -3207,6 +3224,8 @@
         function selectSignature(id) {
             const historySigSelect = document.getElementById('receipt-history-sig-select');
             if (historySigSelect) historySigSelect.value = '';
+            selectedSheetSig = null;
+            ['receipt-sheet-sig-select', 'cert-sheet-sig-select'].forEach(sid => { const s = document.getElementById(sid); if (s) s.value = ''; });
 
             const sigImg = localStorage.getItem('jwc_sig_' + id);
             const p1 = document.getElementById('preview-signature-print-receipt'), p2 = document.getElementById('preview-signature-print-cert-1');
@@ -3216,8 +3235,11 @@
         function useHistorySignature(url) {
             const p1 = document.getElementById('preview-signature-print-receipt'), p2 = document.getElementById('preview-signature-print-cert-1');
             if (url) {
-                if(p1){ p1.src = url; p1.classList.remove('hidden'); }
-                if(p2){ p2.src = url; p2.classList.remove('hidden'); }
+                selectedSheetSig = null;
+                ['receipt-sheet-sig-select', 'cert-sheet-sig-select'].forEach(sid => { const s = document.getElementById(sid); if (s) s.value = ''; });
+                const directUrl = toDirectImageUrl(url);
+                if(p1){ p1.src = directUrl; p1.classList.remove('hidden'); }
+                if(p2){ p2.src = directUrl; p2.classList.remove('hidden'); }
                 const s1 = document.getElementById('sig-select-1'); if(s1) s1.checked = false;
                 const s2 = document.getElementById('sig-select-2'); if(s2) s2.checked = false;
             } else {
@@ -3241,6 +3263,73 @@
             const mSigPreview = document.getElementById('modal-signature-preview-img-' + id);
             if(mSigPreview) { mSigPreview.src = ''; mSigPreview.classList.add('hidden'); document.getElementById('modal-btn-remove-signature-' + id).classList.add('hidden'); }
             if (document.getElementById('sig-select-' + id)?.checked || document.getElementById('modal-sig-select-' + id)?.checked) selectSignature(id);
+        }
+
+        // --- SIGNATURES FROM "sign" SHEET ---
+        let signaturesSheetData = [];
+        let selectedSheetSig = null;
+
+        // แปลงลิงก์ Google Drive ให้เป็น URL รูปตรงที่แสดงใน <img> ได้
+        function toDirectImageUrl(url) {
+            if (!url) return url;
+            url = String(url).trim();
+            if (url.startsWith('data:')) return url;
+            let id = null;
+            let m = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+            if (m) id = m[1];
+            if (!id) { m = url.match(/[?&]id=([a-zA-Z0-9_-]+)/); if (m) id = m[1]; }
+            if (!id && /^[a-zA-Z0-9_-]{20,}$/.test(url)) id = url; // เผื่อกรอกแค่ File ID
+            if (id) return 'https://drive.google.com/thumbnail?id=' + id + '&sz=w1000';
+            return url; // เป็น URL รูปตรงอยู่แล้ว
+        }
+
+        async function loadSheetSignatures() {
+            if (!GOOGLE_SHEET_WEBAPP_URL) return;
+            try {
+                const response = await fetch(GOOGLE_SHEET_WEBAPP_URL + "?action=getSignatures");
+                const data = await response.json();
+                if (data && Array.isArray(data)) {
+                    signaturesSheetData = data.filter(item => item && (item.signature || item.name));
+                    populateSheetSignatureSelects();
+                }
+            } catch (e) { /* เงียบไว้ ถ้าดึงไม่ได้ dropdown จะว่าง */ }
+        }
+
+        function populateSheetSignatureSelects() {
+            const options = '<option value="">-- เลือกลายเซ็นจากชีต sign --</option>' +
+                signaturesSheetData.map((item, idx) =>
+                    `<option value="${idx}">${item.name || ('ลายเซ็น ' + (idx + 1))}</option>`
+                ).join('');
+            ['receipt-sheet-sig-select', 'cert-sheet-sig-select'].forEach(id => {
+                const sel = document.getElementById(id);
+                if (sel) { const prev = sel.value; sel.innerHTML = options; sel.value = prev; }
+            });
+        }
+
+        // เลือกลายเซ็นจากชีต -> แสดงท้ายเอกสารทั้งใบเสร็จและใบรับรอง
+        function applySheetSignature(idx, context) {
+            const p1 = document.getElementById('preview-signature-print-receipt');
+            const p2 = document.getElementById('preview-signature-print-cert-1');
+            if (idx === '' || idx === null || idx === undefined) {
+                selectedSheetSig = null;
+                // กลับไปใช้ลายเซ็นในเครื่อง (ลายเซ็นที่ 1)
+                const s1 = document.getElementById('sig-select-1'); if (s1) s1.checked = true;
+                selectSignature(1);
+                return;
+            }
+            const item = signaturesSheetData[parseInt(idx)];
+            if (!item) return;
+            const directUrl = toDirectImageUrl(item.signature);
+            selectedSheetSig = directUrl;
+            if (p1) { p1.src = directUrl; p1.classList.remove('hidden'); }
+            if (p2) { p2.src = directUrl; p2.classList.remove('hidden'); }
+            // ล้างการเลือกแหล่งอื่น เพื่อไม่ให้ทับกัน
+            const sigA = document.getElementById('sig-select-1'); if (sigA) sigA.checked = false;
+            const sigB = document.getElementById('sig-select-2'); if (sigB) sigB.checked = false;
+            const hist = document.getElementById('receipt-history-sig-select'); if (hist) hist.value = '';
+            // sync dropdown ทั้งสองหน้าให้ตรงกัน
+            const other = context === 'receipt' ? 'cert-sheet-sig-select' : 'receipt-sheet-sig-select';
+            const otherSel = document.getElementById(other); if (otherSel) otherSel.value = idx;
         }
 
         // --- AUTH ---
