@@ -382,10 +382,6 @@
                         </h2>
                         <p class="text-sm text-mop-lighter/80 mt-2 font-medium">รับเข้าสต๊อกและขึ้นทะเบียนวัตถุดิบใหม่ในที่เดียว ตัดสต๊อกอัตโนมัติจากการขาย</p>
                     </div>
-                    <button onclick="showCarryForwardModal()" class="w-full md:w-auto px-5 py-3 bg-white/10 text-white border border-white/30 hover:bg-white/20 font-bold rounded-xl shadow-sm hover:shadow transition-all flex items-center justify-center gap-2 backdrop-blur-sm">
-                        <svg class="w-4 h-4 text-mop-lighter" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
-                        ยกยอดไปเดือนหน้า
-                    </button>
                 </div>
 
                 <div class="p-6 lg:p-8">
@@ -868,19 +864,6 @@
     </div>
 
     <!-- Carry Forward Modal -->
-    <div id="carry-forward-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center transition-opacity">
-        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onclick="document.getElementById('carry-forward-modal').classList.add('hidden')"></div>
-        <div class="glass-card bg-white/95 rounded-[32px] p-8 max-w-sm w-full mx-4 shadow-2xl relative z-10">
-            <div class="w-16 h-16 rounded-2xl bg-mop-lighter flex items-center justify-center text-mop-medium mb-6"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg></div>
-            <h3 class="text-2xl font-bold text-slate-800 mb-2">ปิดยอดเดือน?</h3>
-            <p class="text-slate-500 mb-8 text-sm font-medium leading-relaxed">ระบบจะตั้ง <span class="text-mop-medium font-bold">ยอดคงเหลือ</span> เป็นจำนวนตั้งต้นของรอบใหม่ และรีเซ็ต <span class="text-red-500 font-bold">ยอดที่ใช้ไปแล้ว</span> ให้เป็นศูนย์</p>
-            <div class="flex gap-3">
-                <button onclick="document.getElementById('carry-forward-modal').classList.add('hidden')" class="flex-1 px-5 py-3 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">ยกเลิก</button>
-                <button onclick="confirmCarryForward()" class="flex-1 px-5 py-3 rounded-xl font-bold bg-mop-primary hover:bg-mop-medium text-white transition-colors shadow-lg">ยืนยัน</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Edit History Modal -->
     <div id="edit-history-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center transition-opacity">
         <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onclick="closeEditHistoryModal()"></div>
@@ -1499,17 +1482,6 @@
                 }
                 hideDeleteModal();
             }
-        }
-
-        function showCarryForwardModal() { document.getElementById('carry-forward-modal').classList.remove('hidden'); }
-
-        function confirmCarryForward() {
-            stockData = stockData.map(item => {
-                const remaining = item.qty - (item.used || 0);
-                return { ...item, qty: remaining > 0 ? remaining : 0, used: 0 };
-            });
-            saveStock();
-            document.getElementById('carry-forward-modal').classList.add('hidden');
         }
 
         function autoFillStockFromUnified(inputEl) {
