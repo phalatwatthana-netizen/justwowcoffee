@@ -1664,7 +1664,10 @@
         }
 
         function savePendingBill() {
-            if (pendingStockBill.length === 0) return;
+            if (pendingStockBill.length === 0) {
+                showToast('⚠️ ยังไม่มีรายการในบิล กรุณาเพิ่มรายการก่อนบันทึก', 'error');
+                return;
+            }
             
             const dateInput = document.getElementById('stock-input-date');
             const autoExpense = document.getElementById('stock-auto-expense').checked;
@@ -1700,24 +1703,33 @@
                 }
             });
 
+            let savedToLedger = false;
             if (autoExpense && totalBillExpense > 0) {
                 let descNames = pendingStockBill.map(i => i.name).join(', ');
                 if (descNames.length > 40) descNames = descNames.substring(0, 40) + '...';
-                
+
                 ledgerData.unshift({
                     id: ledgerDateId.toString() + '_stockbill', type: 'expense',
                     desc: `ซื้อวัตถุดิบ (${pendingStockBill.length} รายการ): ${descNames}`,
                     amount: totalBillExpense, date: displayDate, receipt: currentStockImage
                 });
                 saveLedger();
+                savedToLedger = true;
             }
 
+            const billCount = pendingStockBill.length;
             pendingStockBill = [];
             renderPendingBill();
-            
+
             const today = new Date();
             if (dateInput) { dateInput.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`; }
             removeStockImage(); saveStock();
+
+            if (savedToLedger) {
+                showToast('✅ บันทึกลงบัญชีรับ-จ่ายสำเร็จ (ตัดบัญชี ' + totalBillExpense.toLocaleString('en-US', {minimumFractionDigits: 2}) + ' บาท)', 'success');
+            } else {
+                showToast('✅ บันทึกรับเข้าสต๊อกสำเร็จ (' + billCount + ' รายการ)', 'success');
+            }
 
             const btn = document.getElementById('save-bill-btn');
             const orig = btn.innerHTML;
