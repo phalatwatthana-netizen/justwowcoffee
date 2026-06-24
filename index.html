@@ -107,6 +107,14 @@
         
         .cert-table th, .cert-table td { border: 1px solid black; padding: 8px 4px; }
         .cert-table th { text-align: center; font-weight: normal; }
+
+        /* รายงานการเงิน A4 */
+        .fin-page { width: 210mm; min-height: 297mm; background: #fff; color: #000; padding: 14mm 12mm 18mm; box-sizing: border-box; position: relative; }
+        .fin-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .fin-table th, .fin-table td { border: 1px solid #000; padding: 4px 6px; vertical-align: top; }
+        .fin-table th { background: #eaf5ee; text-align: center; font-weight: 700; }
+        .fin-table td.c { text-align: center; }
+        .fin-table td.r { text-align: right; }
     </style>
 </head>
 <body class="text-slate-800 min-h-screen font-sans selection:bg-mop-primary selection:text-white pb-16">
@@ -504,6 +512,7 @@
                             <input type="date" id="ledger-filter-date" onchange="document.getElementById('ledger-entry-date').value = this.value; renderLedger()" class="input-field !py-2 !w-auto hidden text-slate-800">
                             <input type="month" id="ledger-filter-month" onchange="renderLedger()" class="input-field !py-2 !w-auto hidden text-slate-800">
                             <input type="number" id="ledger-filter-year" onchange="renderLedger()" class="input-field !py-2 !w-28 hidden text-slate-800" placeholder="2026">
+                            <button onclick="openFinReport()" class="bg-white text-mop-dark font-bold text-xs sm:text-sm px-4 py-2 rounded-[12px] shadow-sm hover:bg-mop-lighter/40 transition-colors flex items-center gap-1.5 whitespace-nowrap"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg> ออกรายงาน A4</button>
                         </div>
                     </div>
                 </section>
@@ -950,6 +959,29 @@
             </div>
         </div>
     </div>
+
+    <!-- Financial Report Export Modal -->
+    <div id="fin-report-modal" class="fixed inset-0 z-[80] hidden flex items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onclick="closeFinReport()"></div>
+        <div class="glass-card bg-white rounded-[28px] p-6 max-w-2xl w-full mx-4 shadow-2xl relative z-10 flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-xl font-bold text-mop-dark flex items-center gap-2"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg> ออกรายงานการเงิน (A4)</h3>
+                <button onclick="closeFinReport()" class="text-slate-400 hover:text-red-500 bg-slate-100 hover:bg-red-50 p-2 rounded-full transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            </div>
+            <div id="fin-report-info" class="text-xs font-semibold text-slate-500 mb-3"></div>
+            <div class="flex-1 overflow-y-auto bg-slate-100/50 rounded-2xl border border-slate-200 p-2 flex justify-center items-start mb-4 hide-scroll min-h-[200px]">
+                <img id="fin-report-preview" src="" class="max-w-full h-auto shadow-md border border-slate-300">
+            </div>
+            <div class="grid grid-cols-3 gap-3 shrink-0">
+                <button onclick="exportFinReport('pdf')" class="bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-1.5 text-sm shadow-md transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg> PDF</button>
+                <button onclick="exportFinReport('jpg')" class="bg-mop-primary hover:bg-mop-dark text-white py-3 rounded-xl font-bold flex items-center justify-center gap-1.5 text-sm shadow-md transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg> JPG</button>
+                <button onclick="exportFinReport('excel')" class="bg-green-700 hover:bg-green-800 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-1.5 text-sm shadow-md transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg> Excel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ที่ render รายงาน A4 (ซ่อนนอกจอ สำหรับ html2canvas) -->
+    <div id="fin-report-render" style="position:fixed; left:-10000px; top:0; width:210mm; background:#fff;"></div>
 
     <!-- JavaScript Logic -->
     <script>
@@ -3012,6 +3044,199 @@
             document.getElementById('ledger-total-expense').innerText = totalExpense.toLocaleString('en-US', {minimumFractionDigits: 2});
             const balanceTabEl = document.getElementById('ledger-balance-tab'); if(balanceTabEl) balanceTabEl.innerText = balance.toLocaleString('en-US', {minimumFractionDigits: 2});
             const bentoBalanceEl = document.getElementById('bento-balance'); if(bentoBalanceEl) bentoBalanceEl.innerHTML = `${balance.toLocaleString('en-US', {minimumFractionDigits: 2})} <span class="text-lg text-slate-700 font-medium">฿</span>`;
+        }
+
+        // --- รายงานการเงิน A4 (PDF / JPG / Excel) ---
+        let currentFinReport = null;
+
+        function getFilteredLedgerForReport() {
+            const filterType = document.getElementById('ledger-filter-type')?.value || 'all';
+            const filterDate = document.getElementById('ledger-filter-date')?.value || '';
+            const filterMonth = document.getElementById('ledger-filter-month')?.value || '';
+            const filterYear = document.getElementById('ledger-filter-year')?.value || '';
+            const data = ledgerData.filter(item => {
+                if (filterType === 'all') return true;
+                const d = getValidDateFromId(item.id); if (isNaN(d.getTime())) return true;
+                if (filterType === 'date' && filterDate) { const [y,m,dd]=filterDate.split('-'); return d.getFullYear()===+y && d.getMonth()+1===+m && d.getDate()===+dd; }
+                if (filterType === 'month' && filterMonth) { const [y,m]=filterMonth.split('-'); return d.getFullYear()===+y && d.getMonth()+1===+m; }
+                if (filterType === 'year' && filterYear) return d.getFullYear()===+filterYear;
+                return true;
+            }).slice().sort((a,b)=> getValidDateFromId(a.id).getTime() - getValidDateFromId(b.id).getTime());
+            const months=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+            let label = 'ทั้งหมด';
+            if (filterType==='date' && filterDate){ const [y,m,dd]=filterDate.split('-'); label = `วันที่ ${dd}/${m}/${+y+543}`; }
+            else if (filterType==='month' && filterMonth){ const [y,m]=filterMonth.split('-'); label = `เดือน${months[+m-1]} ${+y+543}`; }
+            else if (filterType==='year' && filterYear){ label = `ปี ${+filterYear+543}`; }
+            return { data, label };
+        }
+
+        function finRowParts(r) {
+            const a = parseFloat(r.amount) || 0;
+            const certMatch = String(r.desc || '').match(/\[(JW-\d+)\]/i);
+            const certNo = certMatch ? certMatch[1] : '';
+            const descClean = String(r.desc || '').replace(/\s*\[JW-\d+\]\s*/i, '').trim();
+            const dateOnly = (r.date || '').split(' ')[0] || '';
+            return { a, certNo, descClean, dateOnly, isInc: r.type === 'income' };
+        }
+
+        function finMakePage(rep, rowsHtml, pageNo, totalPages, printedAt, totals, sigOnly) {
+            const div = document.createElement('div');
+            div.className = 'fin-page';
+            const header = `
+              <div style="text-align:center; margin-bottom:8px;">
+                 <div style="font-size:20px; font-weight:800;">JUSTWOW COFFEE &amp; ว้าว ว้าว ปังปิ้ง</div>
+                 <div style="font-size:16px; font-weight:700; margin-top:2px;">รายงานการเงิน (รายรับ-รายจ่าย)</div>
+                 <div style="font-size:12px; color:#444; margin-top:3px;">ช่วงรายงาน: ${rep.label} &nbsp;|&nbsp; พิมพ์เมื่อ: ${printedAt}</div>
+              </div>
+              <hr style="border:none; border-top:2px solid #0b7a51; margin-bottom:10px;">`;
+            const table = sigOnly ? '' : `
+              <table class="fin-table">
+                <thead><tr>
+                  <th style="width:8%;">ลำดับ</th><th style="width:13%;">วันที่</th><th style="width:11%;">ประเภท</th>
+                  <th style="width:34%;">รายละเอียด</th><th style="width:12%;">เลขที่เอกสาร</th>
+                  <th style="width:11%;">รายรับ</th><th style="width:11%;">รายจ่าย</th>
+                </tr></thead>
+                <tbody>${rowsHtml || ''}</tbody>
+              </table>`;
+            let totalsBlock = '', sigBlock = '';
+            if (totals) {
+                totalsBlock = `
+                  <div style="display:flex; justify-content:flex-end; gap:22px; margin-top:14px; font-size:13px; font-weight:bold;">
+                     <div>รวมรายรับ: <span style="color:#0b7a51;">${totals.totalInc.toLocaleString('en-US',{minimumFractionDigits:2})}</span> บาท</div>
+                     <div>รวมรายจ่าย: <span style="color:#c0392b;">${totals.totalExp.toLocaleString('en-US',{minimumFractionDigits:2})}</span> บาท</div>
+                     <div>คงเหลือสุทธิ: ${totals.balance.toLocaleString('en-US',{minimumFractionDigits:2})} บาท</div>
+                  </div>`;
+                const sigCol = (title) => `<div style="text-align:center; flex:1;">
+                     <div style="height:44px;"></div>
+                     <div>ลงชื่อ ...................................</div>
+                     <div style="margin-top:6px;">( ................................... )</div>
+                     <div style="margin-top:3px; font-weight:bold;">${title}</div>
+                     <div style="font-size:11px; color:#555; margin-top:2px;">วันที่ ........./........./.........</div>
+                  </div>`;
+                sigBlock = `<div style="display:flex; justify-content:space-between; gap:14px; margin-top:46px; font-size:12px;">
+                     ${sigCol('ผู้จัดทำ')}${sigCol('ผู้ตรวจสอบ')}${sigCol('ผู้อนุมัติ')}
+                  </div>`;
+            }
+            const footer = `<div style="position:absolute; bottom:8mm; left:0; right:0; text-align:center; font-size:11px; color:#555;">หน้า ${pageNo} / ${totalPages}</div>`;
+            div.innerHTML = header + table + totalsBlock + sigBlock + footer;
+            return div;
+        }
+
+        function buildFinReportPages(rep) {
+            const container = document.getElementById('fin-report-render');
+            container.innerHTML = '';
+            const rows = rep.data;
+            let totalInc = 0, totalExp = 0;
+            rows.forEach(r => { const a = parseFloat(r.amount)||0; if (r.type==='income') totalInc+=a; else totalExp+=a; });
+            const totals = { totalInc, totalExp, balance: totalInc - totalExp };
+
+            const rowsPerPage = 20;
+            const chunks = [];
+            for (let i=0;i<rows.length;i+=rowsPerPage) chunks.push(rows.slice(i,i+rowsPerPage));
+            if (chunks.length===0) chunks.push([]);
+            const lastLen = chunks[chunks.length-1].length;
+            const needExtraSigPage = lastLen > (rowsPerPage - 7); // เผื่อที่สำหรับยอดรวม+ลายเซ็น
+            const totalPages = chunks.length + (needExtraSigPage ? 1 : 0);
+            const printedAt = getThaiDateTimeStr(new Date());
+
+            let idx = 0;
+            chunks.forEach((chunk, ci) => {
+                const rowsHtml = chunk.map(r => {
+                    idx++;
+                    const p = finRowParts(r);
+                    return `<tr>
+                        <td class="c">${idx}</td>
+                        <td class="c">${p.dateOnly}</td>
+                        <td class="c">${p.isInc?'รายรับ':'รายจ่าย'}</td>
+                        <td>${p.descClean||'-'}</td>
+                        <td class="c">${p.certNo}</td>
+                        <td class="r">${p.isInc?p.a.toLocaleString('en-US',{minimumFractionDigits:2}):''}</td>
+                        <td class="r">${!p.isInc?p.a.toLocaleString('en-US',{minimumFractionDigits:2}):''}</td>
+                    </tr>`;
+                }).join('');
+                const showSig = (ci === chunks.length-1) && !needExtraSigPage;
+                container.appendChild(finMakePage(rep, rowsHtml, ci+1, totalPages, printedAt, showSig ? totals : null, false));
+            });
+            if (needExtraSigPage) {
+                container.appendChild(finMakePage(rep, '', totalPages, totalPages, printedAt, totals, true));
+            }
+            return { totalPages, totals };
+        }
+
+        function openFinReport() {
+            if (typeof isLedgerAuthenticated !== 'undefined' && !isLedgerAuthenticated) { showToast('⚠️ กรุณาปลดล็อกบัญชีก่อนออกรายงาน', 'error'); return; }
+            const rep = getFilteredLedgerForReport();
+            currentFinReport = rep;
+            const built = buildFinReportPages(rep);
+            document.getElementById('fin-report-info').textContent = `ช่วง: ${rep.label} · ${rep.data.length} รายการ · ${built.totalPages} หน้า · คงเหลือสุทธิ ${built.totals.balance.toLocaleString('en-US',{minimumFractionDigits:2})} บาท`;
+            const previewImg = document.getElementById('fin-report-preview');
+            if (previewImg) previewImg.src = '';
+            document.getElementById('fin-report-modal').classList.remove('hidden');
+            const firstPage = document.querySelector('#fin-report-render .fin-page');
+            if (firstPage && typeof html2canvas === 'function') {
+                html2canvas(firstPage, { scale: 1.2, useCORS: true, backgroundColor: '#ffffff' }).then(c => {
+                    if (previewImg) previewImg.src = c.toDataURL('image/jpeg', 0.85);
+                });
+            }
+        }
+
+        function closeFinReport() { document.getElementById('fin-report-modal').classList.add('hidden'); }
+
+        async function exportFinReport(type) {
+            const pages = document.querySelectorAll('#fin-report-render .fin-page');
+            if (!pages.length) { showToast('⚠️ ไม่มีข้อมูลให้ออกรายงาน', 'error'); return; }
+            const stamp = currentFinReport ? currentFinReport.label.replace(/[ /]/g,'-') : Date.now();
+            const fileBase = `รายงานการเงิน_${stamp}`;
+            try {
+                if (type === 'excel') { exportFinExcel(fileBase); showToast('✅ ดาวน์โหลด Excel แล้ว', 'success'); return; }
+                showToast('⏳ กำลังสร้างรายงาน...', 'success');
+                const canvases = [];
+                for (const p of pages) canvases.push(await html2canvas(p, { scale: 2, useCORS: true, backgroundColor: '#ffffff' }));
+                if (type === 'pdf') {
+                    const pdf = new jspdf.jsPDF('p','mm','a4');
+                    const w = pdf.internal.pageSize.getWidth(), h = pdf.internal.pageSize.getHeight();
+                    canvases.forEach((c, i) => {
+                        const img = c.toDataURL('image/jpeg', 0.92);
+                        let iw = w, ih = (c.height * w) / c.width;
+                        if (ih > h) { ih = h; iw = (c.width * h) / c.height; }
+                        if (i > 0) pdf.addPage();
+                        pdf.addImage(img, 'JPEG', (w-iw)/2, 0, iw, ih);
+                    });
+                    pdf.save(fileBase + '.pdf');
+                    showToast('✅ ดาวน์โหลด PDF แล้ว', 'success');
+                } else { // jpg — ต่อทุกหน้าเป็นรูปเดียว
+                    const width = Math.max(...canvases.map(c=>c.width));
+                    const gap = 24;
+                    const totalH = canvases.reduce((s,c)=>s+c.height,0) + gap*(canvases.length-1);
+                    const big = document.createElement('canvas'); big.width = width; big.height = totalH;
+                    const ctx = big.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0,0,width,totalH);
+                    let y = 0; canvases.forEach(c => { ctx.drawImage(c, Math.floor((width-c.width)/2), y); y += c.height + gap; });
+                    const link = document.createElement('a'); link.download = fileBase + '.jpg'; link.href = big.toDataURL('image/jpeg', 0.92); link.click();
+                    showToast('✅ ดาวน์โหลด JPG แล้ว', 'success');
+                }
+            } catch (e) { console.error(e); showToast('❌ สร้างรายงานไม่สำเร็จ', 'error'); }
+        }
+
+        function exportFinExcel(fileBase) {
+            const rep = currentFinReport; if (!rep) return;
+            let totalInc = 0, totalExp = 0;
+            const rowsHtml = rep.data.map((r, i) => {
+                const p = finRowParts(r); if (p.isInc) totalInc += p.a; else totalExp += p.a;
+                return `<tr><td>${i+1}</td><td>${p.dateOnly}</td><td>${p.isInc?'รายรับ':'รายจ่าย'}</td><td>${p.descClean}</td><td>${p.certNo}</td><td>${p.isInc?p.a.toFixed(2):''}</td><td>${!p.isInc?p.a.toFixed(2):''}</td></tr>`;
+            }).join('');
+            const balance = totalInc - totalExp;
+            const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body>
+              <table border="1">
+                <tr><th colspan="7" style="font-size:16px;">JUSTWOW COFFEE &amp; ว้าว ว้าว ปังปิ้ง — รายงานการเงิน (${rep.label})</th></tr>
+                <tr><td colspan="7">พิมพ์เมื่อ ${getThaiDateTimeStr(new Date())}</td></tr>
+                <tr><th>ลำดับ</th><th>วันที่</th><th>ประเภท</th><th>รายละเอียด</th><th>เลขที่เอกสาร</th><th>รายรับ</th><th>รายจ่าย</th></tr>
+                ${rowsHtml}
+                <tr><td colspan="5" style="font-weight:bold;text-align:right;">รวม</td><td>${totalInc.toFixed(2)}</td><td>${totalExp.toFixed(2)}</td></tr>
+                <tr><td colspan="6" style="font-weight:bold;text-align:right;">คงเหลือสุทธิ</td><td>${balance.toFixed(2)}</td></tr>
+              </table></body></html>`;
+            const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+            const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = (fileBase || 'รายงานการเงิน') + '.xls'; link.click();
+            setTimeout(() => URL.revokeObjectURL(link.href), 4000);
         }
 
         // --- RECEIPT SYSTEM ---
