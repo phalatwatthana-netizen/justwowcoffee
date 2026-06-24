@@ -537,7 +537,7 @@
                             <div class="grid grid-cols-1 sm:grid-cols-12 gap-4">
                                 <div class="sm:col-span-4"><input type="date" id="ledger-entry-date" class="input-field"></div>
                                 <div class="sm:col-span-4">
-                                    <select id="ledger-type" class="input-field font-semibold">
+                                    <select id="ledger-type" class="input-field font-semibold" onchange="updateIssueDocButton()">
                                         <option value="income">รายรับ (+)</option>
                                         <option value="expense">รายจ่าย (-)</option>
                                     </select>
@@ -556,7 +556,7 @@
                                 </div>
                                 <div class="sm:col-span-3 flex flex-col justify-start gap-2">
                                     <button onclick="addLedgerEntry()" class="w-full btn-premium py-3 font-bold h-[46px] mt-1 shadow-md">บันทึกรายการ</button>
-                                    <button onclick="openReceiptFromLedger()" class="w-full bg-white border border-mop-primary text-mop-dark font-bold py-2.5 rounded-xl text-xs hover:bg-mop-lighter/30 transition-colors flex items-center justify-center gap-1.5 shadow-sm"><svg class="w-4 h-4 text-mop-medium" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg> ออกใบเสร็จรับเงิน</button>
+                                    <button id="btn-issue-doc" onclick="issueLedgerDocument()" class="w-full bg-white border border-mop-primary text-mop-dark font-bold py-2.5 rounded-xl text-xs hover:bg-mop-lighter/30 transition-colors flex items-center justify-center gap-1.5 shadow-sm"><svg class="w-4 h-4 text-mop-medium" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg> <span id="btn-issue-doc-text">ออกใบเสร็จรับเงิน</span></button>
                                 </div>
                             </div>
                         </section>
@@ -983,6 +983,69 @@
 
     <!-- ที่ render รายงาน A4 (ซ่อนนอกจอ สำหรับ html2canvas) -->
     <div id="fin-report-render" style="position:fixed; left:-10000px; top:0; width:210mm; background:#fff;"></div>
+
+    <!-- Payslip (สลิปจ่ายค่าจ้าง) Generator Modal -->
+    <div id="payslip-modal" class="fixed inset-0 z-[70] hidden flex flex-col bg-slate-50 overflow-hidden">
+        <div class="bg-gradient-to-r from-mop-dark to-[#16805b] p-4 flex justify-between items-center text-white shrink-0 shadow-md px-6">
+            <h2 class="font-bold text-lg flex items-center gap-3"><div class="p-2 rounded-lg bg-white/10 text-mop-lighter"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></div> สลิปจ่ายค่าจ้างพนักงาน</h2>
+            <button onclick="closePayslip()" class="bg-white/20 hover:bg-red-500 p-2.5 rounded-xl transition-colors font-bold flex items-center gap-2 text-sm shadow-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>ปิด</button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+            <div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <div class="lg:col-span-5 space-y-6">
+                    <div class="glass-card p-6 border border-slate-200 bg-white space-y-4">
+                        <h3 class="text-sm font-bold text-mop-dark mb-1">ข้อมูลการจ่ายค่าจ้าง</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="text-[11px] font-bold text-slate-500 uppercase mb-1 block">วันที่จ่าย</label><input type="date" id="payslip-date" class="input-field !py-2 bg-slate-50" onchange="generatePayslipPreview()"></div>
+                            <div><label class="text-[11px] font-bold text-slate-500 uppercase mb-1 block">จำนวนเงิน (บาท)</label><input type="number" id="payslip-amount" class="input-field !py-2 bg-slate-50 text-right font-bold" min="0" step="0.01" oninput="generatePayslipPreview()"></div>
+                        </div>
+                        <div><label class="text-[11px] font-bold text-slate-500 uppercase mb-1 block">ชื่อพนักงาน (ผู้รับเงิน)</label><input type="text" id="payslip-name" list="payslip-name-list" class="input-field !py-2 bg-slate-50" placeholder="ชื่อ-นามสกุล..." oninput="generatePayslipPreview()"><datalist id="payslip-name-list"></datalist></div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="text-[11px] font-bold text-slate-500 uppercase mb-1 block">ตำแหน่ง</label><input type="text" id="payslip-position" class="input-field !py-2 bg-slate-50" placeholder="ตำแหน่ง..." oninput="generatePayslipPreview()"></div>
+                            <div><label class="text-[11px] font-bold text-slate-500 uppercase mb-1 block">งวด/ประเภท</label><input type="text" id="payslip-period" class="input-field !py-2 bg-slate-50" placeholder="เช่น ค่าจ้างเดือน มิ.ย. 69" oninput="generatePayslipPreview()"></div>
+                        </div>
+                        <div><label class="text-[11px] font-bold text-slate-500 uppercase mb-1 block">รายละเอียดการจ่าย</label><input type="text" id="payslip-desc" class="input-field !py-2 bg-slate-50" placeholder="เช่น ค่าจ้างพนักงาน, ค่าแรงรายวัน..." oninput="generatePayslipPreview()"></div>
+                        <div class="pt-2 border-t border-slate-100">
+                            <label class="text-[11px] font-bold text-mop-dark uppercase mb-1 flex items-center gap-1.5"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg> เลือกลายเซ็นผู้จ่ายจากชีต "SIGN"</label>
+                            <select id="payslip-sig-select" class="input-field !py-2 text-xs" onchange="applySheetSignature(this.value, 'payslip')"><option value="">-- เลือกลายเซ็นจากชีต SIGN --</option></select>
+                            <div id="payslip-sig-box" class="mt-3 hidden flex-col items-center bg-slate-50/70 border border-slate-200 rounded-xl p-3"><img id="payslip-sig-box-img" src="" class="h-14 w-auto max-w-[180px] object-contain" style="mix-blend-mode:multiply;"><div class="mt-1 text-xs font-bold text-slate-700" id="payslip-sig-box-name"></div><div class="text-[10px] text-slate-400">(ผู้จ่ายเงิน)</div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="lg:col-span-7 space-y-4">
+                    <div class="flex gap-2 sm:gap-3">
+                        <button onclick="savePayslipToLedger()" class="flex-1 bg-mop-dark text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-2 text-sm py-3 hover:bg-mop-primary transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> บันทึกรายจ่าย + แนบสลิป</button>
+                    </div>
+                    <div class="flex gap-2 sm:gap-3">
+                        <button onclick="downloadPayslip('jpg')" class="flex-1 bg-white border border-mop-primary text-mop-dark hover:bg-mop-lighter/30 font-bold rounded-xl shadow-sm flex items-center justify-center gap-2 text-sm py-2.5">เซฟ JPG</button>
+                        <button onclick="downloadPayslip('pdf')" class="flex-1 bg-white border border-red-400 text-red-600 hover:bg-red-50 font-bold rounded-xl shadow-sm flex items-center justify-center gap-2 text-sm py-2.5">เซฟ PDF</button>
+                    </div>
+                    <div class="bg-slate-200/50 p-4 sm:p-6 rounded-[24px] border border-slate-200 shadow-inner flex justify-center overflow-x-auto">
+                        <div id="payslip-print-area" class="bg-white shadow-xl border border-slate-300 font-sans text-black relative shrink-0 p-10" style="width:210mm; min-height:160mm;">
+                            <div class="border border-slate-400 p-8 relative">
+                                <span class="absolute top-3 right-4 text-[13px] font-bold text-mop-dark" id="payslip-preview-no"></span>
+                                <div class="text-center font-bold text-xl">JUSTWOW COFFEE &amp; ว้าว ว้าว ปังปิ้ง</div>
+                                <div class="text-center font-bold text-lg mb-4 mt-1">ใบสำคัญจ่าย / สลิปจ่ายค่าจ้างพนักงาน</div>
+                                <div class="flex justify-end mb-3 text-[13px]"><span class="mr-2">วันที่</span><span class="border-b border-dotted border-slate-400 w-32 inline-block text-center font-semibold" id="payslip-preview-date"></span></div>
+                                <div class="text-[14px] mb-1">จ่ายให้ (ผู้รับเงิน) <span class="border-b border-dotted border-slate-400 inline-block min-w-[220px] px-2 text-center font-semibold" id="payslip-preview-name"></span> ตำแหน่ง <span class="border-b border-dotted border-slate-400 inline-block min-w-[140px] px-2 text-center" id="payslip-preview-position"></span></div>
+                                <div class="text-[14px] mb-4">งวด/ประเภท <span class="border-b border-dotted border-slate-400 inline-block min-w-[260px] px-2 text-center" id="payslip-preview-period"></span></div>
+                                <table class="w-full border-collapse border border-black text-[13px] cert-table mb-4">
+                                    <thead><tr><th class="w-[70%] font-bold border-black">รายการ</th><th class="w-[30%] font-bold border-black">จำนวนเงิน (บาท)</th></tr></thead>
+                                    <tbody><tr><td class="border border-black py-3 px-2" id="payslip-preview-desc"></td><td class="border border-black py-3 text-right px-2 font-bold" id="payslip-preview-amount"></td></tr></tbody>
+                                    <tfoot><tr><td class="border border-black py-2 text-center font-bold">รวมเป็นเงินทั้งสิ้น</td><td class="border border-black py-2 text-right px-2 font-bold" id="payslip-preview-total"></td></tr></tfoot>
+                                </table>
+                                <div class="text-[13px] mb-10">จำนวนเงิน (ตัวอักษร) <span class="border-b border-dotted border-slate-400 inline-block min-w-[300px] px-2 text-center font-semibold" id="payslip-preview-baht-text"></span></div>
+                                <div class="flex justify-around items-end gap-8 mt-12 px-4">
+                                    <div class="flex flex-col items-center"><span class="border-b border-dotted border-slate-400 w-48 inline-block text-center text-[12px] pb-0.5" id="payslip-preview-receiver"></span><span class="mt-1 text-[13px]">(ผู้รับเงิน)</span></div>
+                                    <div class="flex flex-col items-center"><img id="payslip-sig-img" src="" class="h-12 w-auto max-w-[150px] object-contain hidden mb-0.5" style="mix-blend-mode:multiply;"><span class="border-b border-dotted border-slate-400 w-48 inline-block text-center text-[12px] pb-0.5" id="payslip-sig-name"></span><span class="mt-1 text-[13px]">(ผู้จ่ายเงิน)</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- JavaScript Logic -->
     <script>
@@ -2834,6 +2897,130 @@
             showToast('📄 เปิดหน้าออกใบเสร็จรับเงิน — ตรวจ/แก้ข้อมูลแล้วกดบันทึก', 'success');
         }
 
+        // --- สลิปจ่ายค่าจ้างพนักงาน (Payslip / ใบสำคัญจ่าย) ---
+        let currentPayslipNo = '';
+        let payslipSigDataUrl = '';
+
+        function updateIssueDocButton() {
+            const t = document.getElementById('ledger-type')?.value;
+            const el = document.getElementById('btn-issue-doc-text');
+            if (el) el.textContent = (t === 'expense') ? 'ออกสลิปจ่ายค่าจ้าง' : 'ออกใบเสร็จรับเงิน';
+        }
+
+        function issueLedgerDocument() {
+            const t = document.getElementById('ledger-type')?.value;
+            if (t === 'expense') openPayslipFromLedger(); else openReceiptFromLedger();
+        }
+
+        function getNextPayslipNo() {
+            let max = 0;
+            ledgerData.forEach(item => {
+                const m = String((item && item.desc) || '').match(/PV-?(\d+)/i);
+                if (m) { const n = parseInt(m[1]); if (n > max) max = n; }
+            });
+            return 'PV-' + String(max + 1).padStart(4, '0');
+        }
+
+        function updatePayslipNameList() {
+            const dl = document.getElementById('payslip-name-list'); if (!dl) return;
+            const names = [...new Set(ledgerData.map(i => { const m = String(i.desc||'').match(/จ่ายค่าจ้าง:\s*([^\[\)]+)/); return m ? m[1].trim() : ''; }).filter(Boolean))];
+            dl.innerHTML = names.map(v => `<option value="${v}">`).join('');
+        }
+
+        function openPayslipFromLedger() {
+            currentPayslipNo = getNextPayslipNo();
+            payslipSigDataUrl = '';
+            const dateVal = document.getElementById('ledger-entry-date')?.value || new Date().toISOString().split('T')[0];
+            const amt = parseFloat(document.getElementById('ledger-amount')?.value) || '';
+            const desc = (document.getElementById('ledger-desc')?.value || '').replace(/\s*\[(JW|PV)-\d+\]\s*/i, '').trim();
+            document.getElementById('payslip-date').value = dateVal;
+            document.getElementById('payslip-amount').value = amt;
+            document.getElementById('payslip-name').value = '';
+            document.getElementById('payslip-position').value = '';
+            document.getElementById('payslip-period').value = '';
+            document.getElementById('payslip-desc').value = desc || 'ค่าจ้างพนักงาน';
+            const sel = document.getElementById('payslip-sig-select'); if (sel) sel.value = '';
+            applySheetSignature('', 'payslip');
+            updatePayslipNameList();
+            if (typeof loadSheetSignatures === 'function') loadSheetSignatures();
+            generatePayslipPreview();
+            document.getElementById('payslip-modal').classList.remove('hidden');
+        }
+
+        function closePayslip() { document.getElementById('payslip-modal').classList.add('hidden'); }
+
+        function generatePayslipPreview() {
+            const noEl = document.getElementById('payslip-preview-no'); if (noEl) noEl.textContent = currentPayslipNo ? ('เลขที่ ' + currentPayslipNo) : '';
+            const dateVal = document.getElementById('payslip-date').value;
+            let fdate = '';
+            if (dateVal) { const [y,m,d] = dateVal.split('-'); fdate = `${d}/${m}/${+y+543}`; }
+            document.getElementById('payslip-preview-date').textContent = fdate;
+            const nm = document.getElementById('payslip-name').value || '';
+            document.getElementById('payslip-preview-name').textContent = nm;
+            document.getElementById('payslip-preview-receiver').textContent = nm;
+            document.getElementById('payslip-preview-position').textContent = document.getElementById('payslip-position').value || '';
+            document.getElementById('payslip-preview-period').textContent = document.getElementById('payslip-period').value || '';
+            document.getElementById('payslip-preview-desc').textContent = document.getElementById('payslip-desc').value || '';
+            const amt = parseFloat(document.getElementById('payslip-amount').value) || 0;
+            const amtStr = amt > 0 ? amt.toLocaleString('en-US', {minimumFractionDigits:2}) : '';
+            document.getElementById('payslip-preview-amount').textContent = amtStr;
+            document.getElementById('payslip-preview-total').textContent = amtStr;
+            document.getElementById('payslip-preview-baht-text').textContent = amt > 0 ? ArabicNumberToText(amt) : '';
+        }
+
+        async function buildPayslipImage() {
+            const element = document.getElementById('payslip-print-area');
+            const sh = element.style.boxShadow, bd = element.style.border;
+            element.style.boxShadow = 'none'; element.style.border = 'none';
+            await waitForImagesLoaded(element);
+            const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+            element.style.boxShadow = sh; element.style.border = bd;
+            return canvas;
+        }
+
+        async function downloadPayslip(type) {
+            try {
+                const canvas = await buildPayslipImage();
+                const fname = currentPayslipNo || 'Payslip';
+                if (type === 'jpg') {
+                    const link = document.createElement('a'); link.download = fname + '.jpg'; link.href = canvas.toDataURL('image/jpeg', 0.92); link.click();
+                } else {
+                    const pdf = new jspdf.jsPDF('p','mm','a4');
+                    const w = pdf.internal.pageSize.getWidth(), h = pdf.internal.pageSize.getHeight();
+                    let iw = w, ih = (canvas.height*w)/canvas.width; if (ih>h){ ih=h; iw=(canvas.width*h)/canvas.height; }
+                    pdf.addImage(canvas.toDataURL('image/jpeg',0.92),'JPEG',(w-iw)/2,0,iw,ih);
+                    pdf.save(fname + '.pdf');
+                }
+                showToast('✅ ดาวน์โหลดสลิปแล้ว', 'success');
+            } catch (e) { console.error(e); showToast('❌ สร้างสลิปไม่สำเร็จ', 'error'); }
+        }
+
+        async function savePayslipToLedger() {
+            const name = document.getElementById('payslip-name').value.trim();
+            const amt = parseFloat(document.getElementById('payslip-amount').value) || 0;
+            if (!name) { showToast('⚠️ กรุณากรอกชื่อพนักงาน', 'error'); return; }
+            if (amt <= 0) { showToast('⚠️ กรุณากรอกจำนวนเงิน', 'error'); return; }
+            const dateVal = document.getElementById('payslip-date').value;
+            let targetDateObj = new Date();
+            if (dateVal) { const [y,m,d] = dateVal.split('-'); targetDateObj = new Date(y, m-1, d, 12, 0, 0); }
+            const descBase = (document.getElementById('payslip-desc').value || 'ค่าจ้างพนักงาน').trim();
+            let slipImg = null;
+            try { const canvas = await buildPayslipImage(); slipImg = canvas.toDataURL('image/jpeg', 0.7); } catch(e) {}
+            const entry = {
+                id: targetDateObj.getTime().toString() + '_payslip_' + Math.floor(Math.random()*100000),
+                type: 'expense',
+                desc: `${descBase} (จ่ายค่าจ้าง: ${name}) [${currentPayslipNo}]`,
+                amount: amt,
+                date: getThaiDateTimeStr(targetDateObj),
+                receipt: slipImg
+            };
+            saveLedgerEntryMerged(entry);
+            showToast('✅ บันทึกรายจ่าย + แนบสลิป ' + currentPayslipNo + ' แล้ว', 'success');
+            closePayslip();
+            const amtEl = document.getElementById('ledger-amount'); if (amtEl) amtEl.value = '';
+            const descEl = document.getElementById('ledger-desc'); if (descEl) descEl.value = '';
+        }
+
         function addLedgerEntry() {
             const dateVal = document.getElementById('ledger-entry-date').value;
             const type = document.getElementById('ledger-type').value;
@@ -3051,9 +3238,9 @@
                         if (item.receipt.startsWith('http') && !item.receipt.startsWith('http://upload.wikimedia.org')) receiptIcon = `<a href="${item.receipt}" target="_blank" class="w-6 h-6 sm:w-8 sm:h-8 shrink-0 rounded-lg bg-mop-lighter/60 flex items-center justify-center border border-mop-light/40 shadow-sm hover:scale-110 hover:bg-mop-lighter transition-transform bg-white" title="เปิดดูใบเสร็จ"><svg class="w-4 h-4 text-mop-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg></a>`;
                         else { let bgImage = item.receipt.includes('application/pdf') ? PDF_ICON_URL : item.receipt; receiptIcon = `<div class="w-6 h-6 sm:w-8 sm:h-8 shrink-0 rounded-md bg-contain bg-no-repeat bg-center border border-slate-200 cursor-pointer shadow-sm hover:scale-110 transition-transform bg-white" style="background-image: url('${bgImage}')" onclick="viewFullReceipt('${bgImage}')" title="คลิกดูใบเสร็จ"></div>`; }
                     }
-                    const certMatch = String(item.desc || '').match(/\[(JW-\d+)\]/i);
-                    const certBadge = certMatch ? `<span class="text-[9px] font-bold text-mop-primary bg-mop-lighter/70 px-1.5 py-0.5 rounded-md shrink-0" title="เลขที่ใบรับรอง">${certMatch[1]}</span>` : '';
-                    const descClean = String(item.desc || '-').replace(/\s*\[JW-\d+\]\s*/i, '').trim() || '-';
+                    const certMatch = String(item.desc || '').match(/\[((?:JW|PV)-\d+)\]/i);
+                    const certBadge = certMatch ? `<span class="text-[9px] font-bold text-mop-primary bg-mop-lighter/70 px-1.5 py-0.5 rounded-md shrink-0" title="เลขที่เอกสาร">${certMatch[1]}</span>` : '';
+                    const descClean = String(item.desc || '-').replace(/\s*\[(?:JW|PV)-\d+\]\s*/i, '').trim() || '-';
                     return `<div class="grid grid-cols-12 gap-3 items-center px-4 py-3 bg-white/80 border border-white rounded-[16px] hover:shadow-md transition-shadow mb-2"><div class="col-span-3 text-slate-500 font-semibold text-xs sm:text-sm flex flex-col justify-center truncate"><span>${dateOnly}</span><span class="text-[10px] text-slate-400 block">${timeOnly}</span></div><div class="col-span-2 flex items-center"><span class="px-2.5 py-1.5 text-[10px] sm:text-[11px] font-bold rounded-lg uppercase tracking-wider text-center w-full ${isInc ? 'bg-mop-lighter text-mop-dark' : 'bg-red-50 text-red-600'}">${isInc ? 'รายรับ' : 'รายจ่าย'}</span></div><div class="col-span-3 flex items-center gap-1.5 font-bold text-mop-dark text-sm min-w-0">${receiptIcon}${certBadge}<span class="truncate" title="${item.desc || ''}">${descClean}</span></div><div class="col-span-2 text-right font-black text-sm flex items-center justify-end ${isInc ? 'text-mop-primary' : 'text-red-500'}">${isInc ? '+' : '-'}${amt.toLocaleString('en-US', {minimumFractionDigits: 2})}</div><div class="col-span-2 flex justify-end gap-1 sm:gap-2"><button onclick="openEditLedgerModal('${item.id}')" class="text-slate-300 hover:text-mop-medium transition-colors p-1.5 sm:p-2 hover:bg-mop-lighter/50 rounded-xl" title="แก้ไข"><svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg></button><button onclick="showDeleteModal('ledger', '${item.id}')" class="text-slate-300 hover:text-red-500 transition-colors p-1.5 sm:p-2 hover:bg-red-50 rounded-xl" title="ลบ"><svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button></div></div>`;
                 }).join('');
             }
@@ -3090,9 +3277,9 @@
 
         function finRowParts(r) {
             const a = parseFloat(r.amount) || 0;
-            const certMatch = String(r.desc || '').match(/\[(JW-\d+)\]/i);
+            const certMatch = String(r.desc || '').match(/\[((?:JW|PV)-\d+)\]/i);
             const certNo = certMatch ? certMatch[1] : '';
-            const descClean = String(r.desc || '').replace(/\s*\[JW-\d+\]\s*/i, '').trim();
+            const descClean = String(r.desc || '').replace(/\s*\[(?:JW|PV)-\d+\]\s*/i, '').trim();
             const dateOnly = (r.date || '').split(' ')[0] || '';
             return { a, certNo, descClean, dateOnly, isInc: r.type === 'income' };
         }
@@ -3713,7 +3900,7 @@
                 signaturesSheetData.map((item, idx) =>
                     `<option value="${idx}">${item.name || ('ลายเซ็น ' + (idx + 1))}</option>`
                 ).join('');
-            ['receipt-sheet-sig-select', 'cert-sheet-sig-select', 'cert-payee-sig-select'].forEach(id => {
+            ['receipt-sheet-sig-select', 'cert-sheet-sig-select', 'cert-payee-sig-select', 'payslip-sig-select'].forEach(id => {
                 const sel = document.getElementById(id);
                 if (sel) { const prev = sel.value; sel.innerHTML = options; sel.value = prev; }
             });
@@ -3769,11 +3956,21 @@
                     if (item) { boxImg.src = directUrl; boxName.innerText = name; box.classList.remove('hidden'); box.classList.add('flex'); }
                     else { boxImg.src = ''; boxName.innerText = ''; box.classList.add('hidden'); box.classList.remove('flex'); }
                 }
+            } else if (context === 'payslip') {
+                payslipSigDataUrl = item ? directUrl : '';
+                const p = document.getElementById('payslip-sig-img');
+                if (p) { if (item) { p.src = directUrl; p.classList.remove('hidden'); } else { p.src = ''; p.classList.add('hidden'); } }
+                const n = document.getElementById('payslip-sig-name'); if (n) n.innerText = name;
+                const box = document.getElementById('payslip-sig-box'), bi = document.getElementById('payslip-sig-box-img'), bn = document.getElementById('payslip-sig-box-name');
+                if (box && bi && bn) {
+                    if (item) { bi.src = directUrl; bn.innerText = name; box.classList.remove('hidden'); box.classList.add('flex'); }
+                    else { bi.src = ''; bn.innerText = ''; box.classList.add('hidden'); box.classList.remove('flex'); }
+                }
             }
 
             // แจ้งเตือนเมื่อเลือกลายเซ็นสำเร็จ ผู้ใช้จะรู้ว่าลงนามแล้วและบันทึกได้
             if (item) {
-                const who = context === 'receipt' ? 'ผู้รับเงิน' : (context === 'cert-payee' ? 'ผู้เบิกจ่าย' : 'ผู้อนุมัติ');
+                const who = context === 'receipt' ? 'ผู้รับเงิน' : (context === 'cert-payee' ? 'ผู้เบิกจ่าย' : (context === 'payslip' ? 'ผู้จ่ายเงิน' : 'ผู้อนุมัติ'));
                 showToast('✅ ลงนาม (' + who + ') สำเร็จ — บันทึกเอกสารได้เลย', 'success');
             }
         }
