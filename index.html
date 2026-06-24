@@ -996,16 +996,20 @@
                 <div class="lg:col-span-5 space-y-6">
                     <div class="glass-card p-6 border border-slate-200 bg-white space-y-4">
                         <h3 class="text-sm font-bold text-mop-dark mb-1">ข้อมูลการจ่ายค่าจ้าง</h3>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div><label class="text-[11px] font-bold text-slate-500 uppercase mb-1 block">วันที่จ่าย</label><input type="date" id="payslip-date" class="input-field !py-2 bg-slate-50" onchange="generatePayslipPreview()"></div>
-                            <div><label class="text-[11px] font-bold text-slate-500 uppercase mb-1 block">จำนวนเงิน (บาท)</label><input type="number" id="payslip-amount" class="input-field !py-2 bg-slate-50 text-right font-bold" min="0" step="0.01" oninput="generatePayslipPreview()"></div>
-                        </div>
+                        <div><label class="text-[11px] font-bold text-slate-500 uppercase mb-1 block">วันที่จ่าย</label><input type="date" id="payslip-date" class="input-field !py-2 bg-slate-50" onchange="generatePayslipPreview()"></div>
                         <div><label id="payslip-name-label" class="text-[11px] font-bold text-slate-500 uppercase mb-1 block">ชื่อพนักงาน (ผู้รับเงิน)</label><input type="text" id="payslip-name" list="payslip-name-list" class="input-field !py-2 bg-slate-50" placeholder="ชื่อ-นามสกุล..." oninput="generatePayslipPreview()"><datalist id="payslip-name-list"></datalist></div>
                         <div class="grid grid-cols-2 gap-4">
                             <div><label class="text-[11px] font-bold text-slate-500 uppercase mb-1 block">ตำแหน่ง</label><input type="text" id="payslip-position" class="input-field !py-2 bg-slate-50" placeholder="ตำแหน่ง..." oninput="generatePayslipPreview()"></div>
                             <div><label class="text-[11px] font-bold text-slate-500 uppercase mb-1 block">งวด/ประเภท</label><input type="text" id="payslip-period" class="input-field !py-2 bg-slate-50" placeholder="เช่น ค่าจ้างเดือน มิ.ย. 69" oninput="generatePayslipPreview()"></div>
                         </div>
-                        <div><label class="text-[11px] font-bold text-slate-500 uppercase mb-1 block">รายละเอียดการจ่าย</label><input type="text" id="payslip-desc" class="input-field !py-2 bg-slate-50" placeholder="เช่น ค่าจ้างพนักงาน, ค่าแรงรายวัน..." oninput="generatePayslipPreview()"></div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <label class="text-[11px] font-bold text-slate-500 uppercase block">รายละเอียดการจ่าย (เพิ่มได้หลายรายการ)</label>
+                                <button type="button" onclick="addPayslipItemRow()" class="text-[10px] font-bold text-mop-dark bg-mop-lighter/50 px-2 py-1 rounded-lg hover:bg-mop-lighter transition-colors">+ เพิ่มรายการ</button>
+                            </div>
+                            <div id="payslip-items-container" class="space-y-2"></div>
+                            <div class="text-right text-sm font-bold text-mop-dark mt-2">รวม: <span id="payslip-form-total">0.00</span> บาท</div>
+                        </div>
                         <div class="pt-2 border-t border-slate-100">
                             <label class="text-[11px] font-bold text-mop-dark uppercase mb-1 flex items-center gap-1.5"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg> เลือกลายเซ็นผู้จ่ายจากชีต "SIGN"</label>
                             <select id="payslip-sig-select" class="input-field !py-2 text-xs" onchange="applySheetSignature(this.value, 'payslip')"><option value="">-- เลือกลายเซ็นจากชีต SIGN --</option></select>
@@ -1041,7 +1045,7 @@
                                 <div class="text-[14px] mb-4">งวด/ประเภท <span class="border-b border-dotted border-slate-400 inline-block min-w-[260px] px-2 text-center" id="payslip-preview-period"></span></div>
                                 <table class="w-full border-collapse border border-black text-[13px] cert-table mb-4">
                                     <thead><tr><th class="w-[70%] font-bold border-black">รายการ</th><th class="w-[30%] font-bold border-black">จำนวนเงิน (บาท)</th></tr></thead>
-                                    <tbody><tr><td class="border border-black py-3 px-2" id="payslip-preview-desc"></td><td class="border border-black py-3 text-right px-2 font-bold" id="payslip-preview-amount"></td></tr></tbody>
+                                    <tbody id="payslip-preview-items"></tbody>
                                     <tfoot><tr><td class="border border-black py-2 text-center font-bold">รวมเป็นเงินทั้งสิ้น</td><td class="border border-black py-2 text-right px-2 font-bold" id="payslip-preview-total"></td></tr></tfoot>
                                 </table>
                                 <div class="text-[13px] mb-10">จำนวนเงิน (ตัวอักษร) <span class="border-b border-dotted border-slate-400 inline-block min-w-[300px] px-2 text-center font-semibold" id="payslip-preview-baht-text"></span></div>
@@ -2960,11 +2964,11 @@
             const amt = parseFloat(document.getElementById('ledger-amount')?.value) || '';
             const desc = (document.getElementById('ledger-desc')?.value || '').replace(/\s*\[(JW|PV)-\d+\]\s*/i, '').trim();
             document.getElementById('payslip-date').value = dateVal;
-            document.getElementById('payslip-amount').value = amt;
             document.getElementById('payslip-name').value = '';
             document.getElementById('payslip-position').value = '';
             document.getElementById('payslip-period').value = '';
-            document.getElementById('payslip-desc').value = desc || (isU ? 'ค่าสาธารณูปโภค' : 'ค่าจ้างพนักงาน');
+            const itemsC = document.getElementById('payslip-items-container'); if (itemsC) itemsC.innerHTML = '';
+            addPayslipItemRow(desc || (isU ? 'ค่าสาธารณูปโภค' : 'ค่าจ้างพนักงาน'), amt || '');
             const sel = document.getElementById('payslip-sig-select'); if (sel) sel.value = '';
             applySheetSignature('', 'payslip');
             updatePayslipSlipUI();
@@ -3019,6 +3023,30 @@
 
         function closePayslip() { document.getElementById('payslip-modal').classList.add('hidden'); }
 
+        function addPayslipItemRow(name, amount) {
+            const c = document.getElementById('payslip-items-container'); if (!c) return;
+            const div = document.createElement('div');
+            div.className = 'payslip-item-row grid grid-cols-12 gap-2 items-center';
+            const amtVal = (amount !== undefined && amount !== null && amount !== '') ? amount : '';
+            div.innerHTML = `<input type="text" class="col-span-7 input-field !py-1.5 text-xs payslip-item-name bg-slate-50" placeholder="รายการ..." value="${(name||'').replace(/"/g,'&quot;')}" oninput="generatePayslipPreview()">
+                <input type="number" class="col-span-4 input-field !py-1.5 text-xs text-right payslip-item-amount bg-slate-50" placeholder="0.00" min="0" step="0.01" value="${amtVal}" oninput="generatePayslipPreview()">
+                <button type="button" class="col-span-1 text-red-400 hover:text-red-600 font-bold" onclick="removePayslipItemRow(this)">×</button>`;
+            c.appendChild(div);
+            generatePayslipPreview();
+        }
+        function removePayslipItemRow(btn) {
+            const c = document.getElementById('payslip-items-container');
+            btn.closest('.payslip-item-row')?.remove();
+            if (c && !c.querySelector('.payslip-item-row')) addPayslipItemRow();
+            generatePayslipPreview();
+        }
+        function getPayslipItems() {
+            return Array.from(document.querySelectorAll('.payslip-item-row')).map(r => ({
+                name: (r.querySelector('.payslip-item-name')?.value || '').trim(),
+                amount: parseFloat(r.querySelector('.payslip-item-amount')?.value) || 0
+            })).filter(it => it.name || it.amount > 0);
+        }
+
         function generatePayslipPreview() {
             const noEl = document.getElementById('payslip-preview-no'); if (noEl) noEl.textContent = currentPayslipNo ? ('เลขที่ ' + currentPayslipNo) : '';
             const dateVal = document.getElementById('payslip-date').value;
@@ -3030,12 +3058,20 @@
             document.getElementById('payslip-preview-receiver').textContent = nm;
             document.getElementById('payslip-preview-position').textContent = document.getElementById('payslip-position').value || '';
             document.getElementById('payslip-preview-period').textContent = document.getElementById('payslip-period').value || '';
-            document.getElementById('payslip-preview-desc').textContent = document.getElementById('payslip-desc').value || '';
-            const amt = parseFloat(document.getElementById('payslip-amount').value) || 0;
-            const amtStr = amt > 0 ? amt.toLocaleString('en-US', {minimumFractionDigits:2}) : '';
-            document.getElementById('payslip-preview-amount').textContent = amtStr;
-            document.getElementById('payslip-preview-total').textContent = amtStr;
-            document.getElementById('payslip-preview-baht-text').textContent = amt > 0 ? ArabicNumberToText(amt) : '';
+            const items = getPayslipItems();
+            let total = 0;
+            const tbody = document.getElementById('payslip-preview-items');
+            if (tbody) {
+                if (items.length === 0) {
+                    tbody.innerHTML = `<tr><td class="border border-black py-3 px-2">&nbsp;</td><td class="border border-black py-3"></td></tr>`;
+                } else {
+                    tbody.innerHTML = items.map(it => { total += it.amount; return `<tr><td class="border border-black py-2.5 px-2">${(it.name||'-').replace(/</g,'&lt;')}</td><td class="border border-black py-2.5 text-right px-2 font-bold">${it.amount>0?it.amount.toLocaleString('en-US',{minimumFractionDigits:2}):''}</td></tr>`; }).join('');
+                }
+            }
+            const totalStr = total > 0 ? total.toLocaleString('en-US',{minimumFractionDigits:2}) : '';
+            document.getElementById('payslip-preview-total').textContent = totalStr;
+            document.getElementById('payslip-preview-baht-text').textContent = total > 0 ? ArabicNumberToText(total) : '';
+            const ft = document.getElementById('payslip-form-total'); if (ft) ft.textContent = total.toLocaleString('en-US',{minimumFractionDigits:2});
         }
 
         async function buildPayslipImage() {
@@ -3067,14 +3103,16 @@
 
         async function savePayslipToLedger() {
             const name = document.getElementById('payslip-name').value.trim();
-            const amt = parseFloat(document.getElementById('payslip-amount').value) || 0;
-            if (!name) { showToast('⚠️ กรุณากรอกชื่อพนักงาน', 'error'); return; }
-            if (amt <= 0) { showToast('⚠️ กรุณากรอกจำนวนเงิน', 'error'); return; }
+            const items = getPayslipItems();
+            const amt = items.reduce((s, it) => s + it.amount, 0);
+            const isU = payslipMode === 'utility';
+            if (!name) { showToast('⚠️ กรุณากรอกชื่อผู้รับเงิน', 'error'); return; }
+            if (amt <= 0) { showToast('⚠️ กรุณากรอกรายการและจำนวนเงิน', 'error'); return; }
             const dateVal = document.getElementById('payslip-date').value;
             let targetDateObj = new Date();
             if (dateVal) { const [y,m,d] = dateVal.split('-'); targetDateObj = new Date(y, m-1, d, 12, 0, 0); }
-            const isU = payslipMode === 'utility';
-            const descBase = (document.getElementById('payslip-desc').value || (isU ? 'ค่าสาธารณูปโภค' : 'ค่าจ้างพนักงาน')).trim();
+            let descBase = items.map(it => it.name).filter(Boolean).join(', ') || (isU ? 'ค่าสาธารณูปโภค' : 'ค่าจ้างพนักงาน');
+            if (descBase.length > 50) descBase = descBase.substring(0, 50) + '...';
             const tag = isU ? 'จ่ายค่าสาธารณูปโภค' : 'จ่ายค่าจ้าง';
             let slipImg = null;
             try { const canvas = await buildPayslipImage(); slipImg = canvas.toDataURL('image/jpeg', 0.7); } catch(e) {}
