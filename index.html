@@ -2142,10 +2142,11 @@
                 const originalBorder = element.style.border;
                 element.style.boxShadow = 'none';
                 element.style.border = 'none';
+                await waitForImagesLoaded(element);
                 const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
                 element.style.boxShadow = originalShadow;
                 element.style.border = originalBorder;
-                attachCertToStock(canvas.toDataURL('image/jpeg', 0.8)); 
+                attachCertToStock(canvas.toDataURL('image/jpeg', 0.8));
             } catch(e) { console.error("Error auto-attaching cert:", e); }
 
             const newCert = {
@@ -3334,6 +3335,37 @@
             return url; // เป็น URL รูปตรงอยู่แล้ว
         }
 
+        // แปลงรูปลายเซ็น (เช่นลิงก์ Google Drive) ให้เป็น data URL ล่วงหน้า
+        // เพื่อให้ฝังลงเอกสารตอนเซฟ (html2canvas) ได้ชัวร์ ไม่หลุดหายเพราะโหลดไม่ทัน/ติด CORS
+        const sigDataUrlCache = {};
+        function imageUrlToDataUrl(url) {
+            return new Promise((resolve) => {
+                if (!url) return resolve(url);
+                const s = String(url).trim();
+                if (s.startsWith('data:')) return resolve(s);
+                if (sigDataUrlCache[s]) return resolve(sigDataUrlCache[s]);
+                const direct = toDirectImageUrl(s);
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                let done = false;
+                const finish = (val) => { if (done) return; done = true; resolve(val); };
+                img.onload = function() {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.naturalWidth || 320;
+                        canvas.height = img.naturalHeight || 120;
+                        canvas.getContext('2d').drawImage(img, 0, 0);
+                        const dataUrl = canvas.toDataURL('image/png');
+                        sigDataUrlCache[s] = dataUrl;
+                        finish(dataUrl);
+                    } catch (e) { finish(direct); } // canvas ติด CORS -> ใช้ URL ตรงแทน
+                };
+                img.onerror = function() { finish(direct); };
+                img.src = direct;
+                setTimeout(() => finish(direct), 8000);
+            });
+        }
+
         async function loadSheetSignatures() {
             if (!GOOGLE_SHEET_WEBAPP_URL) return;
             try {
@@ -3342,6 +3374,10 @@
                 if (data && Array.isArray(data)) {
                     signaturesSheetData = data.filter(item => item && (item.signature || item.name));
                     populateSheetSignatureSelects();
+                    // แปลงรูปลายเซ็นเป็น data URL ล่วงหน้า เพื่อให้ฝังลงเอกสารตอนเซฟได้แน่นอน
+                    await Promise.all(signaturesSheetData.map(async (item) => {
+                        if (item && item.signature) { item.signature = await imageUrlToDataUrl(item.signature); }
+                    }));
                 }
             } catch (e) { /* เงียบไว้ ถ้าดึงไม่ได้ dropdown จะว่าง */ }
         }
