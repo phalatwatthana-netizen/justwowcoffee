@@ -1974,9 +1974,14 @@
             const vendorList = document.getElementById('cert-vendor-list');
             const remarkList = document.getElementById('cert-remark-list');
 
+            // ดึงชื่อ/ตำแหน่งจากชีต SIGN มาเป็นตัวเลือกในดรอปดาวน์ด้วย (นอกเหนือจากประวัติใบรับรอง)
+            const sigData = (typeof signaturesSheetData !== 'undefined' && Array.isArray(signaturesSheetData)) ? signaturesSheetData : [];
+            const sigNames = sigData.map(s => s.name).filter(Boolean);
+            const sigPositions = sigData.map(s => s.position || s.role).filter(Boolean);
+
             if(companyList) companyList.innerHTML = [...new Set(certificatesData.map(c => c.company).filter(Boolean))].map(v => `<option value="${v}">`).join('');
-            if(payeeList) payeeList.innerHTML = [...new Set(certificatesData.map(c => c.payee).filter(Boolean))].map(v => `<option value="${v}">`).join('');
-            if(positionList) positionList.innerHTML = [...new Set(certificatesData.map(c => c.position).filter(Boolean))].map(v => `<option value="${v}">`).join('');
+            if(payeeList) payeeList.innerHTML = [...new Set([...sigNames, ...certificatesData.map(c => c.payee).filter(Boolean)])].map(v => `<option value="${v}">`).join('');
+            if(positionList) positionList.innerHTML = [...new Set([...sigPositions, ...certificatesData.map(c => c.position).filter(Boolean)])].map(v => `<option value="${v}">`).join('');
             if(vendorList) vendorList.innerHTML = [...new Set(certificatesData.map(c => c.vendor).filter(Boolean))].map(v => `<option value="${v}">`).join('');
             if(remarkList) remarkList.innerHTML = [...new Set(certificatesData.map(c => c.remark).filter(Boolean))].map(v => `<option value="${v}">`).join('');
         }
@@ -3312,6 +3317,8 @@
                 if (data && Array.isArray(data)) {
                     signaturesSheetData = data.filter(item => item && (item.signature || item.name));
                     populateSheetSignatureSelects();
+                    // เติมชื่อจากชีต SIGN ลงในดรอปดาวน์ช่อง "ชื่อผู้รับรองการจ่ายเงิน" / ตำแหน่ง
+                    if (typeof updateCertDatalists === 'function') updateCertDatalists();
                 }
             } catch (e) { /* เงียบไว้ ถ้าดึงไม่ได้ dropdown จะว่าง */ }
         }
