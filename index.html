@@ -1848,8 +1848,8 @@
                 uiPreview.classList.remove('hidden');
                 removeBtn.classList.remove('hidden');
                 
-                printImages.innerHTML = currentCertSlipImages.map(src => 
-                    `<img src="${src}" class="max-w-[250px] max-h-[350px] object-contain rounded-lg shadow-sm border border-slate-200">`
+                printImages.innerHTML = currentCertSlipImages.map(src =>
+                    `<img src="${src}" class="max-w-[180px] max-h-[240px] object-contain rounded-lg shadow-sm border border-slate-200">`
                 ).join('');
                 printContainer.classList.remove('hidden');
                 printContainer.classList.add('flex');
@@ -2125,6 +2125,20 @@
         let currentExportDataUrl = null;
         let currentExportType = 'jpg';
 
+        // รอให้รูปทุกใบในเอกสาร (เช่น ลายเซ็นจาก Google Drive) โหลดเสร็จก่อนแคปเจอร์ ไม่งั้นลายเซ็นจะหายตอนเซฟ
+        function waitForImagesLoaded(el) {
+            const imgs = Array.from(el.querySelectorAll('img')).filter(i => i.src && !i.classList.contains('hidden'));
+            return Promise.all(imgs.map(img => {
+                if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+                return new Promise(res => {
+                    const done = () => res();
+                    img.addEventListener('load', done, { once: true });
+                    img.addEventListener('error', done, { once: true });
+                    setTimeout(done, 6000); // กันค้างถ้ารูปโหลดไม่ได้
+                });
+            }));
+        }
+
         async function openCertExportPreview(type) {
             const btnId = type === 'jpg' ? 'btn-cert-dl-jpg' : 'btn-cert-dl-pdf';
             const btn = document.getElementById(btnId);
@@ -2139,6 +2153,7 @@
             element.style.border = 'none';
 
             try {
+                await waitForImagesLoaded(element);
                 const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
                 currentExportDataUrl = canvas.toDataURL('image/jpeg', 0.9);
                 currentExportType = type;
@@ -2172,10 +2187,21 @@
             } else if (currentExportType === 'pdf') {
                 const pdf = new jspdf.jsPDF('p', 'mm', 'a4');
                 const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
                 const img = new Image();
                 img.onload = function() {
-                    const pdfHeight = (img.height * pdfWidth) / img.width;
-                    pdf.addImage(currentExportDataUrl, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+                    const imgHeight = (img.height * pdfWidth) / img.width;
+                    // ถ้าเนื้อหายาวเกิน 1 หน้า (เช่นมีสลิปแนบ) ให้แบ่งเป็นหลายหน้า A4 จะได้ไม่ล้น
+                    let heightLeft = imgHeight;
+                    let position = 0;
+                    pdf.addImage(currentExportDataUrl, 'JPEG', 0, position, pdfWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                    while (heightLeft > 0.5) {
+                        position -= pageHeight;
+                        pdf.addPage();
+                        pdf.addImage(currentExportDataUrl, 'JPEG', 0, position, pdfWidth, imgHeight);
+                        heightLeft -= pageHeight;
+                    }
                     pdf.save(`Certificate_${Date.now()}.pdf`);
                     dlBtnText.innerText = 'ดาวน์โหลดสำเร็จ!';
                     setTimeout(()=> dlBtnText.innerText = orig, 1500);
