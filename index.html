@@ -2122,7 +2122,14 @@
                 const m = String((c && c.certNo) || '').match(/JW-?(\d+)/i);
                 if (m) { const n = parseInt(m[1]); if (n > max) max = n; }
             });
+            const stored = parseInt(localStorage.getItem('jwc_cert_counter') || '0') || 0;
+            if (stored > max) max = stored;
             return 'JW-' + String(max + 1).padStart(4, '0');
+        }
+        function bumpCertCounter(noStr) {
+            const used = parseInt(String(noStr || '').replace(/\D/g, '')) || 0;
+            const prev = parseInt(localStorage.getItem('jwc_cert_counter') || '0') || 0;
+            if (used > prev) localStorage.setItem('jwc_cert_counter', String(used));
         }
 
         function viewCertificate(id) {
@@ -2326,6 +2333,7 @@
             };
 
             // บันทึกแบบต่อเนื่อง: รวมกับประวัติเดิมในชีตก่อนเขียนกลับ (ไม่เขียนทับของเก่า)
+            bumpCertCounter(currentCertNo);
             certificatesData = await persistListMerged('getCertificates', 'saveCertificates', 'jwc_certificates', certificatesData, newCert);
 
             if(btn) {
@@ -2938,7 +2946,14 @@
                 const m = String((item && item.desc) || '').match(/PV-?(\d+)/i);
                 if (m) { const n = parseInt(m[1]); if (n > max) max = n; }
             });
+            const stored = parseInt(localStorage.getItem('jwc_payslip_counter') || '0') || 0;
+            if (stored > max) max = stored;
             return 'PV-' + String(max + 1).padStart(4, '0');
+        }
+        function bumpPayslipCounter(noStr) {
+            const used = parseInt(String(noStr || '').replace(/\D/g, '')) || 0;
+            const prev = parseInt(localStorage.getItem('jwc_payslip_counter') || '0') || 0;
+            if (used > prev) localStorage.setItem('jwc_payslip_counter', String(used));
         }
 
         function updatePayslipNameList() {
@@ -3114,6 +3129,7 @@
             let descBase = items.map(it => it.name).filter(Boolean).join(', ') || (isU ? 'ค่าสาธารณูปโภค' : 'ค่าจ้างพนักงาน');
             if (descBase.length > 50) descBase = descBase.substring(0, 50) + '...';
             const tag = isU ? 'จ่ายค่าสาธารณูปโภค' : 'จ่ายค่าจ้าง';
+            bumpPayslipCounter(currentPayslipNo);
             let slipImg = null;
             try { const canvas = await buildPayslipImage(); slipImg = canvas.toDataURL('image/jpeg', 0.7); } catch(e) {}
             const entry = {
