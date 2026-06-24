@@ -765,6 +765,7 @@
                     <div class="bg-slate-200/50 p-4 sm:p-6 rounded-[24px] border border-slate-200 shadow-inner flex justify-center overflow-x-auto no-print">
                         <div id="cert-print-area" class="bg-white shadow-xl border border-slate-300 font-sans text-black relative shrink-0 p-10" style="width: 210mm; min-height: 297mm;">
                             <div class="border border-slate-400 p-8 pb-16 relative h-full">
+                                <span class="absolute top-3 right-4 text-[13px] font-bold text-mop-dark" id="cert-preview-no"></span>
                                 <div class="text-center font-bold text-xl mb-4">ใบรับรองแทนใบเสร็จรับเงิน</div>
                                 <div class="flex justify-end mb-4 text-[13px]">
                                     <span class="mr-2">วันที่</span>
@@ -1556,6 +1557,7 @@
 
         function removeStockImage() {
             currentStockImage = null;
+            attachedDocNo = '';
             document.getElementById('stock-input-image-gallery').value = '';
             document.getElementById('stock-input-image-camera').value = '';
             document.getElementById('stock-image-preview').classList.add('hidden');
@@ -1710,7 +1712,7 @@
 
                 saveLedgerEntryMerged({
                     id: ledgerDateId.toString() + '_stockbill_' + Math.floor(Math.random() * 100000), type: 'expense',
-                    desc: `ซื้อวัตถุดิบ (${pendingStockBill.length} รายการ): ${descNames}`,
+                    desc: `ซื้อวัตถุดิบ (${pendingStockBill.length} รายการ): ${descNames}${attachedDocNo ? ' [' + attachedDocNo + ']' : ''}`,
                     amount: totalBillExpense, date: displayDate, receipt: currentStockImage
                 });
                 savedToLedger = true;
@@ -1739,6 +1741,8 @@
         function createDocumentFromStock() {
             const tbodyCert = document.getElementById('preview-items-cert-modal');
             if(!tbodyCert) return;
+
+            currentCertNo = getNextCertNo(); // รันเลขที่ใบรับรองใหม่
 
             let itemsToRender = pendingStockBill.slice(); // Copy array
             
@@ -1996,6 +2000,41 @@
             if(remarkList) remarkList.innerHTML = [...new Set(certificatesData.map(c => c.remark).filter(Boolean))].map(v => `<option value="${v}">`).join('');
         }
 
+        let currentCertNo = '';
+        let attachedDocNo = '';
+        function getNextCertNo() {
+            let max = 0;
+            certificatesData.forEach(c => {
+                const m = String((c && c.certNo) || '').match(/JW-?(\d+)/i);
+                if (m) { const n = parseInt(m[1]); if (n > max) max = n; }
+            });
+            return 'JW-' + String(max + 1).padStart(4, '0');
+        }
+
+        function viewCertificate(id) {
+            const cert = certificatesData.find(c => c.id === id);
+            if (cert && cert.image) { viewFullReceipt(cert.image); }
+            else { loadOldCertificateData(id); } // ไม่มีรูปเก็บไว้ -> โหลดขึ้นพรีวิวแทน
+        }
+
+        async function deleteCertificate(id) {
+            const cert = certificatesData.find(c => c.id === id);
+            if (!confirm('ต้องการลบใบรับรอง ' + ((cert && cert.certNo) ? cert.certNo + ' ' : '') + 'นี้ออกจากระบบ?')) return;
+            certificatesData = certificatesData.filter(c => c.id !== id);
+            localStorage.setItem('jwc_certificates', JSON.stringify(certificatesData));
+            if (GOOGLE_SHEET_WEBAPP_URL) {
+                try {
+                    const formData = new FormData();
+                    formData.append('action', 'saveCertificates');
+                    formData.append('data', JSON.stringify(certificatesData));
+                    await fetch(GOOGLE_SHEET_WEBAPP_URL, { method: 'POST', body: formData, mode: 'no-cors' });
+                } catch (e) {}
+            }
+            showToast('🗑️ ลบใบรับรองแล้ว', 'success');
+            if (typeof updateCertDatalists === 'function') updateCertDatalists();
+            searchCertificates();
+        }
+
         function searchCertificates() {
             const searchInput = document.getElementById('cert-search-input'), resultsContainer = document.getElementById('cert-search-results');
             if(!searchInput) return; const query = searchInput.value.toLowerCase().trim();
@@ -2009,12 +2048,20 @@
 
             if (filtered.length > 0) {
                 resultsContainer.innerHTML = filtered.map(c => `
-                    <div class="p-3 border-b border-slate-100 hover:bg-mop-lighter/30 cursor-pointer transition-colors" onclick="loadOldCertificateData('${c.id}')">
-                        <div class="flex justify-between items-start">
-                            <div class="font-bold text-sm text-mop-dark">${c.payee || 'ไม่ระบุชื่อผู้เบิก'} <span class="text-xs text-slate-500 font-normal">(${c.position || '-'})</span></div>
-                            <div class="text-xs font-black text-mop-primary shrink-0 ml-2">${(parseFloat(c.total) || 0).toLocaleString('en-US', {minimumFractionDigits: 2})} ฿</div>
+                    <div class="p-3 border-b border-slate-100 hover:bg-mop-lighter/30 transition-colors">
+                        <div class="flex justify-between items-start gap-2">
+                            <div class="flex-1 cursor-pointer" onclick="loadOldCertificateData('${c.id}')">
+                                <div class="font-bold text-sm text-mop-dark">${c.certNo ? `<span class="text-mop-primary">${c.certNo}</span> · ` : ''}${c.payee || 'ไม่ระบุชื่อผู้เบิก'} <span class="text-xs text-slate-500 font-normal">(${c.position || '-'})</span></div>
+                                <div class="text-[11px] text-slate-500 mt-0.5">บ. ${c.company || '-'} | ร้าน: ${c.vendor || '-'}</div>
+                            </div>
+                            <div class="flex flex-col items-end gap-1 shrink-0">
+                                <div class="text-xs font-black text-mop-primary">${(parseFloat(c.total) || 0).toLocaleString('en-US', {minimumFractionDigits: 2})} ฿</div>
+                                <div class="flex gap-1">
+                                    <button onclick="viewCertificate('${c.id}')" class="text-[10px] font-bold text-mop-dark bg-mop-lighter/50 px-2.5 py-1 rounded-lg hover:bg-mop-lighter transition-colors">ดู</button>
+                                    <button onclick="deleteCertificate('${c.id}')" class="text-[10px] font-bold text-red-500 bg-red-50 px-2.5 py-1 rounded-lg hover:bg-red-100 transition-colors">ลบ</button>
+                                </div>
+                            </div>
                         </div>
-                        <div class="text-[11px] text-slate-500 mt-0.5">บ. ${c.company || '-'} | ร้าน: ${c.vendor || '-'}</div>
                     </div>
                 `).join('');
                 resultsContainer.classList.remove('hidden');
@@ -2047,6 +2094,7 @@
             }
             updateCertSlipUI();
 
+            currentCertNo = cert.certNo || '';
             generateCertPreviewModal();
         }
 
@@ -2138,6 +2186,7 @@
             }
 
             // Capture Canvas and attach to Stock
+            let certDocImg = null;
             try {
                 const element = document.getElementById('cert-print-area');
                 const originalShadow = element.style.boxShadow;
@@ -2148,14 +2197,18 @@
                 const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
                 element.style.boxShadow = originalShadow;
                 element.style.border = originalBorder;
-                attachCertToStock(canvas.toDataURL('image/jpeg', 0.8));
+                certDocImg = canvas.toDataURL('image/jpeg', 0.7);
+                attachedDocNo = currentCertNo; // ใช้ใส่ในรายการบัญชีตอนตัดบิล
+                attachCertToStock(certDocImg);
             } catch(e) { console.error("Error auto-attaching cert:", e); }
 
             const newCert = {
                 id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                certNo: currentCertNo,
                 dateSaved: getThaiDateTimeStr(new Date()),
                 date: dateVal,
-                company: company, payee: payee, position: position, vendor: vendor, remark: remarkVal, items: items, total: grandTotal, slip: currentCertSlipImages && currentCertSlipImages.length > 0 ? currentCertSlipImages : null
+                company: company, payee: payee, position: position, vendor: vendor, remark: remarkVal, items: items, total: grandTotal, slip: currentCertSlipImages && currentCertSlipImages.length > 0 ? currentCertSlipImages : null,
+                image: certDocImg
             };
 
             // บันทึกแบบต่อเนื่อง: รวมกับประวัติเดิมในชีตก่อนเขียนกลับ (ไม่เขียนทับของเก่า)
@@ -2236,7 +2289,7 @@
 
             if (currentExportType === 'jpg') {
                 const link = document.createElement('a');
-                link.download = `Certificate_${Date.now()}.jpg`;
+                link.download = `${currentCertNo || 'Certificate'}.jpg`;
                 link.href = currentExportDataUrl;
                 link.click();
                 setTimeout(()=> { dlBtnText.innerText = 'ดาวน์โหลดสำเร็จ!'; setTimeout(()=> dlBtnText.innerText = orig, 1500); }, 500);
@@ -2256,7 +2309,7 @@
                     const x = (pdfWidth - w) / 2;
                     const y = (pageHeight - h) / 2;
                     pdf.addImage(currentExportDataUrl, 'JPEG', x, y > 0 ? y : 0, w, h);
-                    pdf.save(`Certificate_${Date.now()}.pdf`);
+                    pdf.save(`${currentCertNo || 'Certificate'}.pdf`);
                     dlBtnText.innerText = 'ดาวน์โหลดสำเร็จ!';
                     setTimeout(()=> dlBtnText.innerText = orig, 1500);
                 };
@@ -2276,6 +2329,8 @@
         }
 
         function generateCertPreviewModal() {
+            const certNoEl = document.getElementById('cert-preview-no');
+            if (certNoEl) certNoEl.textContent = currentCertNo ? ('เลขที่ ' + currentCertNo) : '';
             document.getElementById('cert-preview-company-modal').textContent = document.getElementById('cert-company-modal').value;
             document.getElementById('cert-preview-payee-modal').textContent = document.getElementById('cert-payee-modal').value;
             document.getElementById('cert-preview-position-modal').textContent = document.getElementById('cert-position-modal').value;
