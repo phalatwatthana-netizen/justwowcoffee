@@ -554,8 +554,9 @@
                                         <button type="button" id="ledger-receipt-remove" onclick="removeLedgerReceipt()" class="text-red-500 text-[11px] font-bold hidden hover:underline ml-1">ลบรูป</button>
                                     </div>
                                 </div>
-                                <div class="sm:col-span-3 flex flex-col justify-start">
+                                <div class="sm:col-span-3 flex flex-col justify-start gap-2">
                                     <button onclick="addLedgerEntry()" class="w-full btn-premium py-3 font-bold h-[46px] mt-1 shadow-md">บันทึกรายการ</button>
+                                    <button onclick="openReceiptFromLedger()" class="w-full bg-white border border-mop-primary text-mop-dark font-bold py-2.5 rounded-xl text-xs hover:bg-mop-lighter/30 transition-colors flex items-center justify-center gap-1.5 shadow-sm"><svg class="w-4 h-4 text-mop-medium" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg> ออกใบเสร็จรับเงิน</button>
                                 </div>
                             </div>
                         </section>
@@ -2814,6 +2815,23 @@
         function closeReceiptViewer() {
             document.getElementById('receipt-viewer-modal').classList.add('hidden');
             document.getElementById('receipt-viewer-img').src = '';
+        }
+
+        function openReceiptFromLedger() {
+            const dateVal = document.getElementById('ledger-entry-date')?.value || '';
+            const amt = parseFloat(document.getElementById('ledger-amount')?.value) || 0;
+            const desc = (document.getElementById('ledger-desc')?.value || '').replace(/\s*\[JW-\d+\]\s*/i, '').trim();
+            switchTab('receipt');
+            if (typeof clearReceipt === 'function') clearReceipt();
+            const rDate = document.getElementById('receipt-date'); if (rDate && dateVal) rDate.value = dateVal;
+            const firstRow = document.querySelector('.receipt-item-row');
+            if (firstRow) {
+                const nameEl = firstRow.querySelector('.r-name'); if (nameEl) nameEl.value = desc || 'รับเงิน';
+                const qtyEl = firstRow.querySelector('.r-qty'); if (qtyEl) qtyEl.value = 1;
+                const priceEl = firstRow.querySelector('.r-price'); if (priceEl && amt > 0) priceEl.value = amt;
+            }
+            if (typeof generateReceiptPreview === 'function') generateReceiptPreview();
+            showToast('📄 เปิดหน้าออกใบเสร็จรับเงิน — ตรวจ/แก้ข้อมูลแล้วกดบันทึก', 'success');
         }
 
         function addLedgerEntry() {
