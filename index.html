@@ -2035,6 +2035,55 @@
             generateCertPreviewModal();
         }
 
+        // แจ้งเตือนแบบ toast เล็กๆ ด้านบนจอ
+        function showToast(message, type) {
+            let c = document.getElementById('jwc-toast-container');
+            if (!c) {
+                c = document.createElement('div');
+                c.id = 'jwc-toast-container';
+                c.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:99999;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;';
+                document.body.appendChild(c);
+            }
+            const t = document.createElement('div');
+            const bg = type === 'error' ? '#dc2626' : '#16805b';
+            t.style.cssText = 'background:' + bg + ';color:#fff;padding:10px 18px;border-radius:12px;font-size:14px;font-weight:700;box-shadow:0 6px 20px rgba(0,0,0,.18);opacity:0;transform:translateY(-8px);transition:all .25s ease;font-family:inherit;text-align:center;';
+            t.textContent = message;
+            c.appendChild(t);
+            requestAnimationFrame(() => { t.style.opacity = '1'; t.style.transform = 'translateY(0)'; });
+            setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateY(-8px)'; setTimeout(() => t.remove(), 300); }, 2400);
+        }
+
+        // บันทึกแบบต่อเนื่อง (ไม่เขียนทับของเก่า):
+        // ดึงรายการล่าสุดจากชีตมารวมกับรายการใหม่ (รวมตาม id) ก่อนเขียนกลับ
+        // และจะเขียนกลับเฉพาะเมื่ออ่านรายการเดิมได้สำเร็จ หรือมีฐานข้อมูลเดิมในเครื่องอยู่แล้ว เพื่อกันข้อมูลเก่าหาย
+        async function persistListMerged(getAction, saveAction, localKey, inMemoryList, newEntry) {
+            let base = Array.isArray(inMemoryList) ? inMemoryList.slice() : [];
+            let serverRead = false;
+            if (GOOGLE_SHEET_WEBAPP_URL) {
+                try {
+                    const resp = await fetch(GOOGLE_SHEET_WEBAPP_URL + "?action=" + getAction);
+                    const d = await resp.json();
+                    if (Array.isArray(d)) { base = d.filter(it => it && it.id); serverRead = true; }
+                } catch (e) {}
+            }
+            const byId = new Map();
+            base.forEach(it => { if (it && it.id) byId.set(String(it.id), it); });
+            if (newEntry && newEntry.id) byId.set(String(newEntry.id), newEntry);
+            const merged = Array.from(byId.values());
+            localStorage.setItem(localKey, JSON.stringify(merged));
+            if (GOOGLE_SHEET_WEBAPP_URL && (serverRead || base.length > 0)) {
+                try {
+                    const formData = new FormData();
+                    formData.append('action', saveAction);
+                    formData.append('data', JSON.stringify(merged));
+                    await fetch(GOOGLE_SHEET_WEBAPP_URL, { method: 'POST', body: formData, mode: 'no-cors' });
+                } catch (e) {}
+            } else if (GOOGLE_SHEET_WEBAPP_URL && !serverRead && base.length === 0) {
+                showToast('⚠️ อ่านข้อมูลเดิมจากชีตไม่ได้ จึงยังไม่ซิงค์ขึ้นชีต (เก็บในเครื่องไว้ก่อน)', 'error');
+            }
+            return merged;
+        }
+
         async function saveCurrentCert() {
             const company = document.getElementById('cert-company-modal').value.trim();
             const payee = document.getElementById('cert-payee-modal').value.trim();
@@ -2093,17 +2142,8 @@
                 company: company, payee: payee, position: position, vendor: vendor, remark: remarkVal, items: items, total: grandTotal, slip: currentCertSlipImages && currentCertSlipImages.length > 0 ? currentCertSlipImages : null
             };
 
-            certificatesData.push(newCert);
-            localStorage.setItem('jwc_certificates', JSON.stringify(certificatesData));
-
-            if (GOOGLE_SHEET_WEBAPP_URL) {
-                try {
-                    const formData = new FormData();
-                    formData.append('action', 'saveCertificates');
-                    formData.append('data', JSON.stringify(certificatesData));
-                    fetch(GOOGLE_SHEET_WEBAPP_URL, { method: 'POST', body: formData, mode: 'no-cors' });
-                } catch(e) {}
-            }
+            // บันทึกแบบต่อเนื่อง: รวมกับประวัติเดิมในชีตก่อนเขียนกลับ (ไม่เขียนทับของเก่า)
+            certificatesData = await persistListMerged('getCertificates', 'saveCertificates', 'jwc_certificates', certificatesData, newCert);
 
             if(btn) {
                 btn.innerHTML = '✅ บันทึกสำเร็จ!';
@@ -3126,7 +3166,7 @@
             generateReceiptPreview();
         }
 
-        function saveCurrentReceipt() {
+        async function saveCurrentReceipt() {
             const bookNo = document.getElementById('receipt-book-no').value, receiptNo = document.getElementById('receipt-no').value, dateVal = document.getElementById('receipt-date').value, customer = document.getElementById('receipt-customer').value, sellerName = document.getElementById('receipt-seller-name').value, sellerTax = document.getElementById('receipt-seller-taxid').value, sellerPhone = document.getElementById('receipt-seller-phone').value, sellerAddress = document.getElementById('receipt-seller-address').value;
             let items = [], grandTotal = 0;
             document.querySelectorAll('.receipt-item-row').forEach(row => {
@@ -3141,17 +3181,12 @@
 
             const newReceipt = { id: currentEditingReceiptId || Date.now().toString(), bookNo, receiptNo, date: getThaiDateTimeStr(new Date()), dateVal, customer, sellerName, sellerTax, sellerPhone, sellerAddress, items: items, total: grandTotal, signature: currentSigData, signatureName: currentSigName };
             
-            if (currentEditingReceiptId) { const idx = receiptsData.findIndex(r => r.id === currentEditingReceiptId); if (idx > -1) receiptsData[idx] = newReceipt; currentEditingReceiptId = null; } 
-            else receiptsData.push(newReceipt);
-            
-            localStorage.setItem('jwc_receipts', JSON.stringify(receiptsData));
-            
-            if(GOOGLE_SHEET_WEBAPP_URL) {
-                fetch(GOOGLE_SHEET_WEBAPP_URL, {method: 'POST', body: new URLSearchParams({action:'saveReceipts', data:JSON.stringify(receiptsData)}), mode: 'no-cors'})
-                .then(() => {
-                    // โหลดข้อมูลจากชีตใหม่เพื่อดึง URL กลับมาแสดงผลแทนไฟล์ Base64
-                    setTimeout(loadReceipts, 4000); 
-                });
+            currentEditingReceiptId = null;
+            // บันทึกแบบต่อเนื่อง: รวมกับประวัติเดิมในชีตก่อนเขียนกลับ (แก้ไขรายการเดิม=แทนที่ตาม id, รายการใหม่=ต่อท้าย)
+            receiptsData = await persistListMerged('getReceipts', 'saveReceipts', 'jwc_receipts', receiptsData, newReceipt);
+            if (GOOGLE_SHEET_WEBAPP_URL) {
+                // โหลดข้อมูลจากชีตใหม่เพื่อดึง URL กลับมาแสดงผลแทนไฟล์ Base64
+                setTimeout(loadReceipts, 4000);
             }
             
             const btn = document.getElementById('btn-save-receipt'), orig = btn.innerText; btn.innerText = '✅ บันทึกสำเร็จ!';
@@ -3342,6 +3377,12 @@
                     if (item) { boxImg.src = directUrl; boxName.innerText = name; box.classList.remove('hidden'); box.classList.add('flex'); }
                     else { boxImg.src = ''; boxName.innerText = ''; box.classList.add('hidden'); box.classList.remove('flex'); }
                 }
+            }
+
+            // แจ้งเตือนเมื่อเลือกลายเซ็นสำเร็จ ผู้ใช้จะรู้ว่าลงนามแล้วและบันทึกได้
+            if (item) {
+                const who = context === 'receipt' ? 'ผู้รับเงิน' : (context === 'cert-payee' ? 'ผู้เบิกจ่าย' : 'ผู้อนุมัติ');
+                showToast('✅ ลงนาม (' + who + ') สำเร็จ — บันทึกเอกสารได้เลย', 'success');
             }
         }
 
