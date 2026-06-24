@@ -1708,12 +1708,11 @@
                 let descNames = pendingStockBill.map(i => i.name).join(', ');
                 if (descNames.length > 40) descNames = descNames.substring(0, 40) + '...';
 
-                ledgerData.unshift({
-                    id: ledgerDateId.toString() + '_stockbill', type: 'expense',
+                saveLedgerEntryMerged({
+                    id: ledgerDateId.toString() + '_stockbill_' + Math.floor(Math.random() * 100000), type: 'expense',
                     desc: `ซื้อวัตถุดิบ (${pendingStockBill.length} รายการ): ${descNames}`,
                     amount: totalBillExpense, date: displayDate, receipt: currentStockImage
                 });
-                saveLedger();
                 savedToLedger = true;
             }
 
@@ -2653,6 +2652,21 @@
             }
         }
 
+        // เพิ่มรายการลงบัญชีแบบต่อเนื่อง: ดึงประวัติล่าสุดจากชีตมารวมก่อนเขียนกลับ (กันประวัติเก่าหาย)
+        async function saveLedgerEntryMerged(newEntry) {
+            // แสดงผลทันที (optimistic) แล้วค่อยซิงค์กับชีต
+            if (newEntry && newEntry.id && !ledgerData.some(e => e.id === newEntry.id)) {
+                ledgerData.unshift(newEntry);
+                ledgerData.sort((a, b) => getValidDateFromId(b.id).getTime() - getValidDateFromId(a.id).getTime());
+                localStorage.setItem('jwc_ledger', JSON.stringify(ledgerData));
+                renderLedger();
+            }
+            ledgerData = await persistListMerged('getLedger', 'saveLedger', 'jwc_ledger', ledgerData, newEntry);
+            ledgerData.sort((a, b) => getValidDateFromId(b.id).getTime() - getValidDateFromId(a.id).getTime());
+            localStorage.setItem('jwc_ledger', JSON.stringify(ledgerData));
+            renderLedger();
+        }
+
         function getValidDateFromId(idStr) {
             if (!idStr) return new Date();
             let tsString = String(idStr);
@@ -2729,10 +2743,12 @@
             }
             const finalId = targetDateObj.getTime().toString() + '_' + Math.floor(Math.random() * 1000);
 
-            ledgerData.unshift({ id: finalId, type: type, desc: desc, amount: amt, date: getThaiDateTimeStr(targetDateObj), receipt: currentLedgerReceipt });
+            const ledgerEntry = { id: finalId, type: type, desc: desc, amount: amt, date: getThaiDateTimeStr(targetDateObj), receipt: currentLedgerReceipt };
             document.getElementById('ledger-desc').value = '';
             document.getElementById('ledger-amount').value = '';
-            removeLedgerReceipt(); saveLedger();
+            removeLedgerReceipt();
+            saveLedgerEntryMerged(ledgerEntry);
+            showToast('✅ บันทึกลงบัญชีรับ-จ่ายสำเร็จ', 'success');
         }
 
         function handleEditLedgerReceiptUpload(event) {
