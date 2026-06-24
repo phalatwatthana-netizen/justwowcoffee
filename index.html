@@ -609,52 +609,18 @@
                                 <div id="receipt-items-container" class="space-y-1"></div>
                                 
                                 <div class="pt-4 border-t border-slate-200/60 mt-4">
-                                    <h3 class="text-xs font-bold text-slate-700 mb-3 uppercase tracking-wider">ลายเซ็นผู้รับเงิน (เลือก 1 ลายเซ็น)</h3>
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div class="p-3 border border-slate-200 rounded-xl bg-slate-50/50 relative">
-                                            <label class="flex items-center gap-2 mb-3 cursor-pointer"><input type="radio" name="sig_selection" id="sig-select-1" value="1" onchange="selectSignature(1)" class="w-4 h-4 text-mop-primary focus:ring-mop-primary" checked><span class="text-xs font-bold text-slate-700">ลายเซ็นที่ 1</span></label>
-                                            <div class="flex items-center gap-3">
-                                                <div class="w-24 h-12 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center bg-white relative overflow-hidden shadow-inner"><span class="text-[9px] text-slate-400 font-medium px-1 text-center">ว่าง</span><img id="signature-preview-img-1" class="absolute inset-0 w-full h-full object-contain hidden z-10" style="mix-blend-mode: multiply;" /></div>
-                                                <div class="flex flex-col items-start gap-1.5"><input type="file" id="signature-upload-1" accept="image/*" class="hidden" onchange="handleSignatureUpload(event, 1)"><button type="button" onclick="document.getElementById('signature-upload-1').click()" class="btn-glass px-2 py-1.5 text-[10px] font-bold rounded-[8px] flex items-center gap-1 shadow-sm">แนบรูป</button><button type="button" onclick="removeSignature(1)" id="btn-remove-signature-1" class="text-red-500 text-[9px] font-bold hidden hover:underline">ลบลายเซ็น</button></div>
-                                            </div>
-                                        </div>
-                                        <div class="p-3 border border-slate-200 rounded-xl bg-slate-50/50 relative">
-                                            <label class="flex items-center gap-2 mb-3 cursor-pointer"><input type="radio" name="sig_selection" id="sig-select-2" value="2" onchange="selectSignature(2)" class="w-4 h-4 text-mop-primary focus:ring-mop-primary"><span class="text-xs font-bold text-slate-700">ลายเซ็นที่ 2</span></label>
-                                            <div class="flex items-center gap-3">
-                                                <div class="w-24 h-12 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center bg-white relative overflow-hidden shadow-inner"><span class="text-[9px] text-slate-400 font-medium px-1 text-center">ว่าง</span><img id="signature-preview-img-2" class="absolute inset-0 w-full h-full object-contain hidden z-10" style="mix-blend-mode: multiply;" /></div>
-                                                <div class="flex flex-col items-start gap-1.5"><input type="file" id="signature-upload-2" accept="image/*" class="hidden" onchange="handleSignatureUpload(event, 2)"><button type="button" onclick="document.getElementById('signature-upload-2').click()" class="btn-glass px-2 py-1.5 text-[10px] font-bold rounded-[8px] flex items-center gap-1 shadow-sm">แนบรูป</button><button type="button" onclick="removeSignature(2)" id="btn-remove-signature-2" class="text-red-500 text-[9px] font-bold hidden hover:underline">ลบลายเซ็น</button></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="mt-4">
-                                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1 block">หรือ ดึงลายเซ็นที่เคยบันทึกจากระบบ (อ้างอิงจากบิลเก่า)</label>
-                                        <div class="flex items-center gap-2">
-                                            <select id="receipt-history-sig-select" class="input-field !py-2 text-xs flex-1" onchange="useHistorySignature(this.value)">
-                                                <option value="">-- ใช้ลายเซ็นในเครื่อง (ด้านบน) --</option>
-                                            </select>
-                                            <a id="receipt-history-sig-link" href="#" target="_blank" class="hidden text-mop-primary hover:text-mop-dark bg-mop-lighter/50 p-2 rounded-xl border border-mop-light/30 transition-colors shadow-sm" title="เปิดดูลายเซ็น"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg></a>
-                                        </div>
-                                    </div>
-                                    <div class="mt-4">
-                                        <label class="text-[10px] font-bold text-mop-dark uppercase tracking-wide mb-1 flex items-center gap-1.5"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg> หรือ เลือกลายเซ็นจากชีต "sign"</label>
+                                    <h3 class="text-xs font-bold text-slate-700 mb-3 uppercase tracking-wider">ลายเซ็นผู้รับเงิน</h3>
+                                    <div class="mt-2">
+                                        <label class="text-[10px] font-bold text-mop-dark uppercase tracking-wide mb-1 flex items-center gap-1.5"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg> เลือกลายเซ็นจากชีต "SIGN"</label>
                                         <select id="receipt-sheet-sig-select" class="input-field !py-2 text-xs" onchange="applySheetSignature(this.value, 'receipt')">
-                                            <option value="">-- เลือกลายเซ็นจากชีต sign --</option>
+                                            <option value="">-- เลือกลายเซ็นจากชีต SIGN --</option>
                                         </select>
+                                        <div id="receipt-sig-preview-box" class="mt-3 hidden flex-col items-center bg-slate-50/70 border border-slate-200 rounded-xl p-3">
+                                            <img id="receipt-sig-preview-img" src="" class="h-16 w-auto max-w-[200px] object-contain" style="mix-blend-mode: multiply;">
+                                            <div class="mt-1 text-xs font-bold text-slate-700" id="receipt-sig-preview-name"></div>
+                                            <div class="text-[10px] text-slate-400">(ผู้รับเงิน)</div>
+                                        </div>
                                     </div>
-                                    <p class="text-[10px] text-slate-500 mt-2">* ระบบจะจดจำลายเซ็นทั้ง 2 แบบไว้ในเครื่องอัตโนมัติ กดเลือกวงกลมด้านบนเพื่อกำหนดลายเซ็นที่จะพิมพ์</p>
-                                </div>
-
-                                <div class="pt-4 border-t border-slate-200/60 mt-4">
-                                    <h3 class="text-xs font-bold text-slate-700 mb-3 uppercase tracking-wider flex items-center gap-1.5"><svg class="w-3.5 h-3.5 text-mop-medium" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg> แนบสลิปโอนเงิน (แสดงท้ายเอกสาร)</h3>
-                                    <div class="flex items-center gap-3 flex-wrap">
-                                        <input type="file" id="receipt-slip-upload" accept="image/*" multiple class="hidden" onchange="handleReceiptSlipUpload(event)">
-                                        <button type="button" onclick="document.getElementById('receipt-slip-upload').click()" class="btn-glass px-3 py-1.5 text-[10px] sm:text-xs font-bold rounded-[8px] flex items-center gap-1 shadow-sm">
-                                            <svg class="w-4 h-4 text-mop-medium" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg> แนบรูปสลิป
-                                        </button>
-                                        <div id="receipt-slip-preview-ui" class="items-center gap-2 hidden"></div>
-                                        <button type="button" id="receipt-slip-remove-btn" onclick="removeReceiptSlip()" class="text-red-500 text-[10px] font-bold hidden hover:underline">ลบรูปทั้งหมด</button>
-                                    </div>
-                                    <p class="text-[10px] text-slate-500 mt-2">* แนบได้สูงสุด 3 รูป จะแสดงท้ายเอกสารใต้หัวข้อ "สลิปแนบ"</p>
                                 </div>
                             </div>
                         </div>
@@ -706,9 +672,13 @@
                                         </tr>
                                     </tfoot>
                                 </table>
-                                <div id="receipt-preview-slip-container" class="mt-12 text-center hidden flex-col items-center">
-                                    <span class="text-[13px] font-bold text-slate-600 mb-3 border-b border-slate-300 pb-1 px-2">สลิปแนบ (หลักฐานการโอนเงิน)</span>
-                                    <div id="receipt-preview-slip-images" class="flex flex-wrap justify-center gap-4"></div>
+                                <div class="flex justify-end mt-16 mr-10 text-[13px]">
+                                    <div class="relative flex flex-col items-center">
+                                        <img id="preview-signature-print-receipt" src="" class="absolute bottom-9 h-14 w-auto max-w-[180px] object-contain hidden z-10" style="mix-blend-mode: multiply;">
+                                        <span class="border-b border-dotted border-slate-400 w-56 inline-block"></span>
+                                        <span class="mt-1 font-semibold" id="preview-signature-name-receipt"></span>
+                                        <span class="text-slate-600">( ผู้รับเงิน )</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -758,27 +728,10 @@
                             </div>
                         </div>
                         <div class="pt-6 mt-6 border-t border-slate-200">
-                            <h3 class="text-xs font-bold text-slate-700 mb-3 uppercase tracking-wider">เลือกลายเซ็น</h3>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div class="p-3 border border-slate-200 rounded-xl bg-slate-50/50 relative">
-                                    <label class="flex items-center gap-2 mb-3 cursor-pointer"><input type="radio" name="modal_sig_selection" id="modal-sig-select-1" value="1" onchange="selectSignature(1)" class="w-4 h-4 text-mop-primary"><span class="text-xs font-bold text-slate-700">ลายเซ็นที่ 1</span></label>
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-20 h-10 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center bg-white relative overflow-hidden"><span class="text-[9px] text-slate-400 font-medium px-1 text-center">ว่าง</span><img id="modal-signature-preview-img-1" src="" class="absolute inset-0 w-full h-full object-contain hidden z-10" style="mix-blend-mode: multiply;"></div>
-                                        <div class="flex flex-col items-start gap-1.5"><input type="file" id="modal-signature-upload-1" accept="image/*" class="hidden" onchange="handleSignatureUpload(event, 1)"><button type="button" onclick="document.getElementById('modal-signature-upload-1').click()" class="btn-glass px-2 py-1.5 text-[10px] font-bold rounded-[8px] flex items-center gap-1 shadow-sm">แนบรูป</button><button type="button" onclick="removeSignature(1)" id="modal-btn-remove-signature-1" class="text-red-500 text-[9px] font-bold hidden hover:underline">ลบลายเซ็น</button></div>
-                                    </div>
-                                </div>
-                                <div class="p-3 border border-slate-200 rounded-xl bg-slate-50/50 relative">
-                                    <label class="flex items-center gap-2 mb-3 cursor-pointer"><input type="radio" name="modal_sig_selection" id="modal-sig-select-2" value="2" onchange="selectSignature(2)" class="w-4 h-4 text-mop-primary"><span class="text-xs font-bold text-slate-700">ลายเซ็นที่ 2</span></label>
-                                    <div class="flex items-center gap-3">
-                                        <button type="button" id="cert-slip-remove-btn" onclick="removeCertSlip()" class="text-red-500 text-[10px] font-bold hidden hover:underline">ลบรูปทั้งหมด</button>
-                                    </div>
-                                    <div id="cert-slip-preview-ui" class="hidden"></div>
-                                </div>
-                            </div>
-                            <div class="mt-4">
-                                <label class="text-[11px] font-bold text-mop-dark uppercase tracking-wide mb-1 flex items-center gap-1.5"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg> หรือ เลือกลายเซ็นจากชีต "sign"</label>
+                            <div class="mt-1">
+                                <label class="text-[11px] font-bold text-mop-dark uppercase tracking-wide mb-1 flex items-center gap-1.5"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg> เลือกลายเซ็นจากชีต "SIGN" (ผู้อนุมัติ)</label>
                                 <select id="cert-sheet-sig-select" class="input-field !py-2 text-xs" onchange="applySheetSignature(this.value, 'cert')">
-                                    <option value="">-- เลือกลายเซ็นจากชีต sign --</option>
+                                    <option value="">-- เลือกลายเซ็นจากชีต SIGN --</option>
                                 </select>
                             </div>
                         </div>
@@ -816,8 +769,8 @@
                                     <div class="flex items-center indent-10"><span class="shrink-0 mr-2">ข้าพเจ้า</span><span class="border-b border-dotted border-slate-400 flex-1 px-2 text-center" id="cert-preview-payee-modal"></span><span class="shrink-0 ml-2 mr-2">(ผู้เบิกจ่าย) ตำแหน่ง</span><span class="border-b border-dotted border-slate-400 flex-1 px-2 text-center" id="cert-preview-position-modal"></span></div>
                                     <div class="leading-relaxed">ขอรับรองว่า รายจ่ายข้างต้นนี้ไม่อาจเรียกเก็บใบเสร็จรับเงินจาก<span class="border-b border-dotted border-slate-400 px-2 min-w-[200px] inline-block text-center font-semibold text-mop-dark" id="cert-preview-vendor-modal"></span>(ผู้รับได้) และข้าพเจ้าได้จ่ายไปในงานของทางร้านค้า</div>
                                     <div class="flex flex-col items-end gap-6 mt-12 pr-12">
-                                        <div class="flex items-end"><span class="mr-2 shrink-0">ลงชื่อ</span><div class="relative flex flex-col items-center"><img id="preview-signature-print-cert-1" src="" class="absolute bottom-1 h-14 w-auto max-w-[180px] object-contain hidden z-10" style="mix-blend-mode: multiply;"><span class="border-b border-dotted border-slate-400 w-48 inline-block relative"></span></div><span class="ml-2 shrink-0 text-center w-24">(ผู้เบิกจ่าย)</span></div>
-                                        <div class="flex items-end"><span class="mr-2 shrink-0">ลงชื่อ</span><div class="relative flex flex-col items-center"><span class="border-b border-dotted border-slate-400 w-48 inline-block relative"></span></div><span class="ml-2 shrink-0 text-center w-24">(ผู้อนุมัติ)</span></div>
+                                        <div class="flex items-end"><span class="mr-2 shrink-0">ลงชื่อ</span><div class="relative flex flex-col items-center"><span class="border-b border-dotted border-slate-400 w-48 inline-block relative"></span></div><span class="ml-2 shrink-0 text-center w-24">(ผู้เบิกจ่าย)</span></div>
+                                        <div class="flex items-end"><span class="mr-2 shrink-0">ลงชื่อ</span><div class="relative flex flex-col items-center"><img id="preview-signature-print-cert-1" src="" class="absolute bottom-5 h-14 w-auto max-w-[180px] object-contain hidden z-10" style="mix-blend-mode: multiply;"><span class="border-b border-dotted border-slate-400 w-48 inline-block relative text-center text-[12px] pb-0.5" id="cert-preview-approver-name"></span></div><span class="ml-2 shrink-0 text-center w-24">(ผู้อนุมัติ)</span></div>
                                     </div>
                                 </div>
                                 <div id="cert-preview-slip-container" class="mt-12 text-center hidden flex-col items-center">
@@ -1812,6 +1765,7 @@
             if(certVendor) certVendor.value = '';
 
             generateCertPreviewModal();
+            if (typeof loadSheetSignatures === 'function') loadSheetSignatures();
             document.getElementById('cert-generator-modal').classList.remove('hidden');
         }
         
@@ -3069,23 +3023,23 @@
                 });
             } else addReceiptItemRow();
             
-            if (receipt.signature && receipt.signature.startsWith('http')) {
-                const historySigSelect = document.getElementById('receipt-history-sig-select');
-                if (historySigSelect) {
-                    historySigSelect.value = receipt.signature;
-                    useHistorySignature(receipt.signature);
-                }
-            } else {
-                const historySigSelect = document.getElementById('receipt-history-sig-select');
-                if (historySigSelect) historySigSelect.value = '';
-                const s1 = document.getElementById('sig-select-1'); if(s1) s1.checked = true;
-                selectSignature(1);
+            // โหลดลายเซ็นผู้รับเงินกลับมาแสดง
+            applySheetSignature('', 'receipt'); // เคลียร์ก่อน
+            if (receipt.signature) {
+                const directUrl = toDirectImageUrl(receipt.signature);
+                selectedSheetSig = directUrl;
+                selectedSheetSigName = receipt.signatureName || '';
+                // พยายามจับคู่กับรายการในชีตเพื่อให้ dropdown แสดงรายการที่เลือก
+                const matchIdx = signaturesSheetData.findIndex(s => toDirectImageUrl(s.signature) === directUrl || (receipt.signatureName && s.name === receipt.signatureName));
+                const sel = document.getElementById('receipt-sheet-sig-select');
+                if (sel && matchIdx > -1) sel.value = String(matchIdx);
+                const p1 = document.getElementById('preview-signature-print-receipt');
+                if (p1) { p1.src = directUrl; p1.classList.remove('hidden'); }
+                const nm = document.getElementById('preview-signature-name-receipt');
+                if (nm) nm.innerText = selectedSheetSigName;
+                const box = document.getElementById('receipt-sig-preview-box'), boxImg = document.getElementById('receipt-sig-preview-img'), boxName = document.getElementById('receipt-sig-preview-name');
+                if (box && boxImg && boxName) { boxImg.src = directUrl; boxName.innerText = selectedSheetSigName; box.classList.remove('hidden'); box.classList.add('flex'); }
             }
-
-            let slipsArr = [];
-            try { slipsArr = typeof receipt.slips === 'string' ? JSON.parse(receipt.slips) : receipt.slips; } catch(e) {}
-            currentReceiptSlipImages = Array.isArray(slipsArr) ? slipsArr.filter(Boolean) : (slipsArr ? [slipsArr] : []);
-            updateReceiptSlipUI();
 
             generateReceiptPreview();
             const btn = document.getElementById('btn-save-receipt'); btn.innerHTML = 'อัปเดตเอกสารเก่า'; btn.classList.replace('bg-[#8ccb4a]', 'bg-mop-dark');
@@ -3126,12 +3080,9 @@
             document.getElementById('receipt-customer').value = ''; currentEditingReceiptId = null;
             document.getElementById('btn-save-receipt').innerText = 'บันทึกเอกสาร';
             document.getElementById('btn-save-receipt').classList.replace('bg-mop-dark', 'bg-[#8ccb4a]');
-            const customLinkInput = document.getElementById('receipt-custom-link-sig');
-            if(customLinkInput) customLinkInput.value = '';
             if(typeof generateReceiptNo === 'function') generateReceiptNo();
-            currentReceiptSlipImages = []; updateReceiptSlipUI();
-            selectedSheetSig = null;
             const sheetSigSel = document.getElementById('receipt-sheet-sig-select'); if(sheetSigSel) sheetSigSel.value = '';
+            applySheetSignature('', 'receipt');
             generateReceiptPreview();
         }
 
@@ -3144,15 +3095,11 @@
             });
             if(items.length === 0) { const msg = document.getElementById('receipt-error-msg'); msg.classList.remove('hidden'); setTimeout(() => msg.classList.add('hidden'), 3000); return; }
             
-            let sigSelection = document.getElementById('sig-select-1')?.checked ? 1 : (document.getElementById('sig-select-2')?.checked ? 2 : null);
-            let historySig = document.getElementById('receipt-history-sig-select')?.value;
-            let customLink = document.getElementById('receipt-custom-link-sig')?.value;
-            let formattedCustomLink = customLink ? formatDriveLink(customLink) : null;
-            
-            // ลำดับความสำคัญ: ลิงก์ที่กรอก > ลายเซ็นจากชีต sign > ประวัติเก่า > เซ็นสด
-            let currentSigData = formattedCustomLink ? formattedCustomLink : (selectedSheetSig ? selectedSheetSig : (historySig ? historySig : (sigSelection ? localStorage.getItem('jwc_sig_' + sigSelection) : null)));
+            // ลายเซ็นผู้รับเงิน: เลือกจากชีต SIGN
+            let currentSigData = selectedSheetSig || null;
+            let currentSigName = selectedSheetSigName || '';
 
-            const newReceipt = { id: currentEditingReceiptId || Date.now().toString(), bookNo, receiptNo, date: getThaiDateTimeStr(new Date()), dateVal, customer, sellerName, sellerTax, sellerPhone, sellerAddress, items: items, total: grandTotal, signature: currentSigData, slips: currentReceiptSlipImages.length > 0 ? [...currentReceiptSlipImages] : null };
+            const newReceipt = { id: currentEditingReceiptId || Date.now().toString(), bookNo, receiptNo, date: getThaiDateTimeStr(new Date()), dateVal, customer, sellerName, sellerTax, sellerPhone, sellerAddress, items: items, total: grandTotal, signature: currentSigData, signatureName: currentSigName };
             
             if (currentEditingReceiptId) { const idx = receiptsData.findIndex(r => r.id === currentEditingReceiptId); if (idx > -1) receiptsData[idx] = newReceipt; currentEditingReceiptId = null; } 
             else receiptsData.push(newReceipt);
@@ -3217,9 +3164,7 @@
 
         // --- SIGNATURES & SETTINGS ---
         function loadSettings() {
-            const s1 = localStorage.getItem('jwc_sig_1'); if(s1) { document.getElementById('signature-preview-img-1').src = s1; document.getElementById('signature-preview-img-1').classList.remove('hidden'); document.getElementById('btn-remove-signature-1').classList.remove('hidden'); }
-            const s2 = localStorage.getItem('jwc_sig_2'); if(s2) { document.getElementById('signature-preview-img-2').src = s2; document.getElementById('signature-preview-img-2').classList.remove('hidden'); document.getElementById('btn-remove-signature-2').classList.remove('hidden'); }
-            selectSignature(1);
+            // ลายเซ็นในเครื่องถูกยกเลิกแล้ว ใช้ลายเซ็นจากชีต SIGN แทน (ไม่ต้องโหลดอะไรที่นี่)
         }
         function selectSignature(id) {
             const historySigSelect = document.getElementById('receipt-history-sig-select');
@@ -3268,6 +3213,7 @@
         // --- SIGNATURES FROM "sign" SHEET ---
         let signaturesSheetData = [];
         let selectedSheetSig = null;
+        let selectedSheetSigName = '';
 
         // แปลงลิงก์ Google Drive ให้เป็น URL รูปตรงที่แสดงใน <img> ได้
         function toDirectImageUrl(url) {
@@ -3306,30 +3252,35 @@
             });
         }
 
-        // เลือกลายเซ็นจากชีต -> แสดงท้ายเอกสารทั้งใบเสร็จและใบรับรอง
+        // เลือกลายเซ็นจากชีต -> แสดงในเอกสาร (receipt = ผู้รับเงิน, cert = ผู้อนุมัติ) แยกกันคนละหน้า
         function applySheetSignature(idx, context) {
-            const p1 = document.getElementById('preview-signature-print-receipt');
-            const p2 = document.getElementById('preview-signature-print-cert-1');
-            if (idx === '' || idx === null || idx === undefined) {
-                selectedSheetSig = null;
-                // กลับไปใช้ลายเซ็นในเครื่อง (ลายเซ็นที่ 1)
-                const s1 = document.getElementById('sig-select-1'); if (s1) s1.checked = true;
-                selectSignature(1);
-                return;
+            const item = (idx === '' || idx === null || idx === undefined) ? null : signaturesSheetData[parseInt(idx)];
+            const directUrl = item ? toDirectImageUrl(item.signature) : '';
+            const name = item ? (item.name || '') : '';
+
+            if (context === 'receipt') {
+                selectedSheetSig = item ? directUrl : null;
+                selectedSheetSigName = name;
+                // ลายเซ็นบนเอกสารใบเสร็จ
+                const p1 = document.getElementById('preview-signature-print-receipt');
+                if (p1) { if (item) { p1.src = directUrl; p1.classList.remove('hidden'); } else { p1.src = ''; p1.classList.add('hidden'); } }
+                const nm = document.getElementById('preview-signature-name-receipt');
+                if (nm) nm.innerText = name;
+                // กล่องพรีวิวในแผงกรอกข้อมูล
+                const box = document.getElementById('receipt-sig-preview-box');
+                const boxImg = document.getElementById('receipt-sig-preview-img');
+                const boxName = document.getElementById('receipt-sig-preview-name');
+                if (box && boxImg && boxName) {
+                    if (item) { boxImg.src = directUrl; boxName.innerText = name; box.classList.remove('hidden'); box.classList.add('flex'); }
+                    else { boxImg.src = ''; boxName.innerText = ''; box.classList.add('hidden'); box.classList.remove('flex'); }
+                }
+            } else if (context === 'cert') {
+                // ลายเซ็นบนบรรทัด (ผู้อนุมัติ) ของใบรับรอง
+                const p2 = document.getElementById('preview-signature-print-cert-1');
+                if (p2) { if (item) { p2.src = directUrl; p2.classList.remove('hidden'); } else { p2.src = ''; p2.classList.add('hidden'); } }
+                const cn = document.getElementById('cert-preview-approver-name');
+                if (cn) cn.innerText = name;
             }
-            const item = signaturesSheetData[parseInt(idx)];
-            if (!item) return;
-            const directUrl = toDirectImageUrl(item.signature);
-            selectedSheetSig = directUrl;
-            if (p1) { p1.src = directUrl; p1.classList.remove('hidden'); }
-            if (p2) { p2.src = directUrl; p2.classList.remove('hidden'); }
-            // ล้างการเลือกแหล่งอื่น เพื่อไม่ให้ทับกัน
-            const sigA = document.getElementById('sig-select-1'); if (sigA) sigA.checked = false;
-            const sigB = document.getElementById('sig-select-2'); if (sigB) sigB.checked = false;
-            const hist = document.getElementById('receipt-history-sig-select'); if (hist) hist.value = '';
-            // sync dropdown ทั้งสองหน้าให้ตรงกัน
-            const other = context === 'receipt' ? 'cert-sheet-sig-select' : 'receipt-sheet-sig-select';
-            const otherSel = document.getElementById(other); if (otherSel) otherSel.value = idx;
         }
 
         // --- AUTH ---
