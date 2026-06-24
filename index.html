@@ -3335,35 +3335,58 @@
             return url; // เป็น URL รูปตรงอยู่แล้ว
         }
 
-        // แปลงรูปลายเซ็น (เช่นลิงก์ Google Drive) ให้เป็น data URL ล่วงหน้า
+        // แปลงรูปลายเซ็น (เช่นลิงก์ Google Drive) ให้เป็น PNG พื้นหลังโปร่งใส (data URL) ล่วงหน้า
         // เพื่อให้ฝังลงเอกสารตอนเซฟ (html2canvas) ได้ชัวร์ ไม่หลุดหายเพราะโหลดไม่ทัน/ติด CORS
         const sigDataUrlCache = {};
-        function imageUrlToDataUrl(url) {
+
+        // โหลดรูปจาก src แล้วแปลงเป็น data URL (ทำพื้นขาวให้โปร่งใส) — คืน null ถ้าทำไม่ได้ (เช่นติด CORS)
+        function loadToDataUrl(src) {
             return new Promise((resolve) => {
-                if (!url) return resolve(url);
-                const s = String(url).trim();
-                if (s.startsWith('data:')) return resolve(s);
-                if (sigDataUrlCache[s]) return resolve(sigDataUrlCache[s]);
-                const direct = toDirectImageUrl(s);
                 const img = new Image();
                 img.crossOrigin = 'anonymous';
                 let done = false;
-                const finish = (val) => { if (done) return; done = true; resolve(val); };
+                const finish = (v) => { if (done) return; done = true; resolve(v); };
                 img.onload = function() {
                     try {
                         const canvas = document.createElement('canvas');
                         canvas.width = img.naturalWidth || 320;
                         canvas.height = img.naturalHeight || 120;
-                        canvas.getContext('2d').drawImage(img, 0, 0);
-                        const dataUrl = canvas.toDataURL('image/png');
-                        sigDataUrlCache[s] = dataUrl;
-                        finish(dataUrl);
-                    } catch (e) { finish(direct); } // canvas ติด CORS -> ใช้ URL ตรงแทน
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0);
+                        // ทำพิกเซลที่ใกล้ขาวให้โปร่งใส เพื่อให้ลายเซ็นดูสะอาดบนเอกสาร
+                        try {
+                            const d = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                            const p = d.data;
+                            for (let i = 0; i < p.length; i += 4) {
+                                if (p[i] > 230 && p[i + 1] > 230 && p[i + 2] > 230) p[i + 3] = 0;
+                            }
+                            ctx.putImageData(d, 0, 0);
+                        } catch (e) { finish(null); return; } // getImageData ติด CORS
+                        finish(canvas.toDataURL('image/png'));
+                    } catch (e) { finish(null); }
                 };
-                img.onerror = function() { finish(direct); };
-                img.src = direct;
-                setTimeout(() => finish(direct), 8000);
+                img.onerror = function() { finish(null); };
+                img.src = src;
+                setTimeout(() => finish(null), 8000);
             });
+        }
+
+        async function imageUrlToDataUrl(url) {
+            if (!url) return url;
+            const s = String(url).trim();
+            if (s.startsWith('data:')) return s;
+            if (sigDataUrlCache[s]) return sigDataUrlCache[s];
+            const direct = toDirectImageUrl(s);
+            // 1) ลองโหลดตรงๆ ก่อน
+            let dataUrl = await loadToDataUrl(direct);
+            // 2) ถ้าไม่ได้ (ติด CORS) ลองผ่านพร็อกซีรูปที่รองรับ CORS
+            if (!dataUrl) {
+                const noProto = direct.replace(/^https?:\/\//, '');
+                const proxy = 'https://images.weserv.nl/?url=ssl:' + encodeURIComponent(noProto);
+                dataUrl = await loadToDataUrl(proxy);
+            }
+            if (dataUrl) { sigDataUrlCache[s] = dataUrl; return dataUrl; }
+            return direct; // สุดท้ายใช้ URL ตรง
         }
 
         async function loadSheetSignatures() {
