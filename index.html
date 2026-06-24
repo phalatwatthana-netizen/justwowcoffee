@@ -716,9 +716,9 @@
                             <div class="pt-2 border-t border-slate-100 mt-2"><label class="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1 block">ไม่อาจเรียกเก็บใบเสร็จจาก (ผู้ขาย)</label><input type="text" id="cert-vendor-modal" list="cert-vendor-list" class="input-field !py-2 bg-slate-50" placeholder="ระบุชื่อร้านค้าหรือผู้รับเงิน..." oninput="generateCertPreviewModal()"></div>
                             <div class="pt-2 mt-2"><label class="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1 block">หมายเหตุ (แสดงทุกบรรทัดในตาราง)</label><input type="text" id="cert-remark-modal" list="cert-remark-list" class="input-field !py-2 bg-slate-50" placeholder="ระบุหมายเหตุ..." oninput="generateCertPreviewModal()"></div>
                             <div class="pt-2 mt-2 border-t border-slate-100">
-                                <label class="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1 block">แนบสลิปโอนเงิน (แสดงท้ายเอกสาร)</label>
+                                <label class="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1 block">แนบสลิปโอนเงิน (สูงสุด 3 รูป · แสดงท้ายเอกสาร)</label>
                                 <div class="flex items-center gap-3">
-                                    <input type="file" id="cert-slip-upload" accept="image/*" class="hidden" onchange="handleCertSlipUpload(event)">
+                                    <input type="file" id="cert-slip-upload" accept="image/*" multiple class="hidden" onchange="handleCertSlipUpload(event)">
                                     <button type="button" onclick="document.getElementById('cert-slip-upload').click()" class="btn-glass px-3 py-1.5 text-[10px] sm:text-xs font-bold rounded-[8px] flex items-center gap-1 shadow-sm">
                                         <svg class="w-4 h-4 text-mop-medium" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg> แนบรูปสลิป
                                     </button>
@@ -727,12 +727,28 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="pt-6 mt-6 border-t border-slate-200">
+                        <div class="pt-6 mt-6 border-t border-slate-200 space-y-4">
+                            <div class="mt-1">
+                                <label class="text-[11px] font-bold text-mop-dark uppercase tracking-wide mb-1 flex items-center gap-1.5"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg> เลือกลายเซ็นจากชีต "SIGN" (ผู้เบิกจ่าย)</label>
+                                <select id="cert-payee-sig-select" class="input-field !py-2 text-xs" onchange="applySheetSignature(this.value, 'cert-payee')">
+                                    <option value="">-- เลือกลายเซ็นจากชีต SIGN --</option>
+                                </select>
+                                <div id="cert-payee-sig-preview-box" class="mt-3 hidden flex-col items-center bg-slate-50/70 border border-slate-200 rounded-xl p-3">
+                                    <img id="cert-payee-sig-preview-img" src="" class="h-14 w-auto max-w-[180px] object-contain" style="mix-blend-mode: multiply;">
+                                    <div class="mt-1 text-xs font-bold text-slate-700" id="cert-payee-sig-preview-name"></div>
+                                    <div class="text-[10px] text-slate-400">(ผู้เบิกจ่าย)</div>
+                                </div>
+                            </div>
                             <div class="mt-1">
                                 <label class="text-[11px] font-bold text-mop-dark uppercase tracking-wide mb-1 flex items-center gap-1.5"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg> เลือกลายเซ็นจากชีต "SIGN" (ผู้อนุมัติ)</label>
                                 <select id="cert-sheet-sig-select" class="input-field !py-2 text-xs" onchange="applySheetSignature(this.value, 'cert')">
                                     <option value="">-- เลือกลายเซ็นจากชีต SIGN --</option>
                                 </select>
+                                <div id="cert-approver-sig-preview-box" class="mt-3 hidden flex-col items-center bg-slate-50/70 border border-slate-200 rounded-xl p-3">
+                                    <img id="cert-approver-sig-preview-img" src="" class="h-14 w-auto max-w-[180px] object-contain" style="mix-blend-mode: multiply;">
+                                    <div class="mt-1 text-xs font-bold text-slate-700" id="cert-approver-sig-preview-name"></div>
+                                    <div class="text-[10px] text-slate-400">(ผู้อนุมัติ)</div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -768,9 +784,9 @@
                                     <div class="flex items-center"><span class="w-36 shrink-0">รวมทั้งสิ้น (ตัวอักษร)</span><span class="border-b border-dotted border-slate-400 flex-1 px-2 text-center" id="cert-preview-total-text-modal"></span></div>
                                     <div class="flex items-center indent-10"><span class="shrink-0 mr-2">ข้าพเจ้า</span><span class="border-b border-dotted border-slate-400 flex-1 px-2 text-center" id="cert-preview-payee-modal"></span><span class="shrink-0 ml-2 mr-2">(ผู้เบิกจ่าย) ตำแหน่ง</span><span class="border-b border-dotted border-slate-400 flex-1 px-2 text-center" id="cert-preview-position-modal"></span></div>
                                     <div class="leading-relaxed">ขอรับรองว่า รายจ่ายข้างต้นนี้ไม่อาจเรียกเก็บใบเสร็จรับเงินจาก<span class="border-b border-dotted border-slate-400 px-2 min-w-[200px] inline-block text-center font-semibold text-mop-dark" id="cert-preview-vendor-modal"></span>(ผู้รับได้) และข้าพเจ้าได้จ่ายไปในงานของทางร้านค้า</div>
-                                    <div class="flex flex-col items-end gap-6 mt-12 pr-12">
-                                        <div class="flex items-end"><span class="mr-2 shrink-0">ลงชื่อ</span><div class="relative flex flex-col items-center"><span class="border-b border-dotted border-slate-400 w-48 inline-block relative"></span></div><span class="ml-2 shrink-0 text-center w-24">(ผู้เบิกจ่าย)</span></div>
-                                        <div class="flex items-end"><span class="mr-2 shrink-0">ลงชื่อ</span><div class="relative flex flex-col items-center"><img id="preview-signature-print-cert-1" src="" class="absolute bottom-5 h-14 w-auto max-w-[180px] object-contain hidden z-10" style="mix-blend-mode: multiply;"><span class="border-b border-dotted border-slate-400 w-48 inline-block relative text-center text-[12px] pb-0.5" id="cert-preview-approver-name"></span></div><span class="ml-2 shrink-0 text-center w-24">(ผู้อนุมัติ)</span></div>
+                                    <div class="flex justify-around items-end gap-8 mt-16 px-4">
+                                        <div class="flex items-end"><span class="mr-2 shrink-0">ลงชื่อ</span><div class="relative flex flex-col items-center"><img id="preview-signature-print-cert-payee" src="" class="absolute bottom-5 h-14 w-auto max-w-[160px] object-contain hidden z-10" style="mix-blend-mode: multiply;"><span class="border-b border-dotted border-slate-400 w-44 inline-block relative text-center text-[12px] pb-0.5" id="cert-preview-payee-sig-name"></span></div><span class="ml-2 shrink-0 text-center">(ผู้เบิกจ่าย)</span></div>
+                                        <div class="flex items-end"><span class="mr-2 shrink-0">ลงชื่อ</span><div class="relative flex flex-col items-center"><img id="preview-signature-print-cert-1" src="" class="absolute bottom-5 h-14 w-auto max-w-[160px] object-contain hidden z-10" style="mix-blend-mode: multiply;"><span class="border-b border-dotted border-slate-400 w-44 inline-block relative text-center text-[12px] pb-0.5" id="cert-preview-approver-name"></span></div><span class="ml-2 shrink-0 text-center">(ผู้อนุมัติ)</span></div>
                                     </div>
                                 </div>
                                 <div id="cert-preview-slip-container" class="mt-12 text-center hidden flex-col items-center">
@@ -3246,7 +3262,7 @@
                 signaturesSheetData.map((item, idx) =>
                     `<option value="${idx}">${item.name || ('ลายเซ็น ' + (idx + 1))}</option>`
                 ).join('');
-            ['receipt-sheet-sig-select', 'cert-sheet-sig-select'].forEach(id => {
+            ['receipt-sheet-sig-select', 'cert-sheet-sig-select', 'cert-payee-sig-select'].forEach(id => {
                 const sel = document.getElementById(id);
                 if (sel) { const prev = sel.value; sel.innerHTML = options; sel.value = prev; }
             });
@@ -3280,6 +3296,28 @@
                 if (p2) { if (item) { p2.src = directUrl; p2.classList.remove('hidden'); } else { p2.src = ''; p2.classList.add('hidden'); } }
                 const cn = document.getElementById('cert-preview-approver-name');
                 if (cn) cn.innerText = name;
+                // กล่องพรีวิวในแผงกรอกข้อมูล
+                const box = document.getElementById('cert-approver-sig-preview-box');
+                const boxImg = document.getElementById('cert-approver-sig-preview-img');
+                const boxName = document.getElementById('cert-approver-sig-preview-name');
+                if (box && boxImg && boxName) {
+                    if (item) { boxImg.src = directUrl; boxName.innerText = name; box.classList.remove('hidden'); box.classList.add('flex'); }
+                    else { boxImg.src = ''; boxName.innerText = ''; box.classList.add('hidden'); box.classList.remove('flex'); }
+                }
+            } else if (context === 'cert-payee') {
+                // ลายเซ็นบนบรรทัด (ผู้เบิกจ่าย) ของใบรับรอง
+                const p3 = document.getElementById('preview-signature-print-cert-payee');
+                if (p3) { if (item) { p3.src = directUrl; p3.classList.remove('hidden'); } else { p3.src = ''; p3.classList.add('hidden'); } }
+                const pn = document.getElementById('cert-preview-payee-sig-name');
+                if (pn) pn.innerText = name;
+                // กล่องพรีวิวในแผงกรอกข้อมูล
+                const box = document.getElementById('cert-payee-sig-preview-box');
+                const boxImg = document.getElementById('cert-payee-sig-preview-img');
+                const boxName = document.getElementById('cert-payee-sig-preview-name');
+                if (box && boxImg && boxName) {
+                    if (item) { boxImg.src = directUrl; boxName.innerText = name; box.classList.remove('hidden'); box.classList.add('flex'); }
+                    else { boxImg.src = ''; boxName.innerText = ''; box.classList.add('hidden'); box.classList.remove('flex'); }
+                }
             }
         }
 
