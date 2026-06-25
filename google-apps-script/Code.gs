@@ -1,146 +1,275 @@
-/**
- * JUSTWOW COFFEE — Google Sheets backend (Apps Script Web App)
- * ------------------------------------------------------------------
- * เก็บข้อมูลแต่ละชุด (stock / ledger / certificates / receipts / history)
- * เป็น "JSON" ในชีตชื่อ _DATA  →  ทุกฟิลด์ถูกบันทึกครบถาวร
- * รวมถึง certNo (เลขที่ใบรับรอง JW-xxxx), เลขที่สลิป PV-xxxx, slip, items ฯลฯ
- * และฟิลด์ใหม่ในอนาคตก็ไม่หาย (ไม่ต้องแก้สคริปต์อีก)
- *
- * ลายเซ็นยังอ่านจากชีตชื่อ "SIGN" (คอลัมน์หัวตาราง: name | signature) เหมือนเดิม
- *
- * วิธีติดตั้ง:
- *  1) เปิด Google Sheet ของร้าน → เมนู Extensions → Apps Script
- *  2) ⚠️ สำรองข้อมูลก่อน: File → Make a copy ของ Sheet ทั้งไฟล์
- *  3) ลบโค้ดเดิมทั้งหมดใน Code.gs แล้ววางโค้ดนี้แทน → Save
- *  4) Deploy → Manage deployments → แก้ deployment เดิม (เวอร์ชันใหม่)
- *     หรือ Deploy → New deployment → Web app
- *       - Execute as: Me
- *       - Who has access: Anyone
- *     แล้วใช้ URL เดิม (ถ้าแก้ deployment เดิม URL จะไม่เปลี่ยน)
- *
- * หมายเหตุการย้ายข้อมูล:
- *  - สคริปต์นี้ใช้รูปแบบจัดเก็บใหม่ (JSON ในชีต _DATA) ข้อมูลเดิมที่อยู่คนละรูปแบบ
- *    จะยังไม่ถูกอ่านโดยอัตโนมัติ ระบบจะเริ่มสะสมข้อมูลใหม่ลง _DATA
- *  - ตัวแอปมี localStorage สำรองอยู่ เมื่อบันทึกครั้งถัดไปข้อมูลในเครื่องจะถูกเขียนลง _DATA
- */
+// ==========================================
+// 🛠️ ตั้งค่า ID ของ Google Sheets และ Folder
+// ==========================================
+const SPREADSHEET_ID = '1IaZR3AmvIjNse8nywXPLOU15KECnrmBiF6Z06_gTEco';
 
-var DATA_SHEET = '_DATA';   // ชีตเก็บ JSON (จะถูกสร้างอัตโนมัติ ซ่อนได้)
-var SIGN_SHEET = 'SIGN';    // ชีตลายเซ็น (หัวตาราง: name | signature)
+// เปลี่ยนโฟลเดอร์ ID หากต้องการสร้างโฟลเดอร์แยก เช่น "1A2B3C4D5E6F7G8H9I0J"
+// ถ้าไม่ใส่ ระบบจะสร้างโฟลเดอร์ชื่อ "JWC_Receipts" ให้เองในหน้าแรกของ Drive
+const FOLDER_ID = '';
 
-/* ---------- helpers ---------- */
-function _ss() { return SpreadsheetApp.getActiveSpreadsheet(); }
-
-function _dataSheet() {
-  var ss = _ss();
-  var sh = ss.getSheetByName(DATA_SHEET);
-  if (!sh) {
-    sh = ss.insertSheet(DATA_SHEET);
-    sh.getRange('A1').setValue('key');
-    sh.getRange('B1').setValue('json');
-  }
-  return sh;
+// ตัวช่วยตอบกลับเป็น JSON
+function jsonOut(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
-function _readCollection(key) {
-  var sh = _dataSheet();
-  var values = sh.getDataRange().getValues();
-  for (var i = 1; i < values.length; i++) {
-    if (String(values[i][0]) === key) {
-      try { return JSON.parse(values[i][1] || '[]'); } catch (e) { return []; }
-    }
-  }
-  return [];
+// ตัวช่วยอ่านชีตทั้งแผ่นแปลงเป็น array of objects
+function sheetToObjects(ss, sheetName) {
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) return [];
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return [];
+  const headers = data[0];
+  return data.slice(1).map(row => {
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = row[i]; });
+    return obj;
+  });
 }
 
-function _writeCollection(key, arr) {
-  var sh = _dataSheet();
-  var json = JSON.stringify(arr || []);
-  var values = sh.getDataRange().getValues();
-  for (var i = 1; i < values.length; i++) {
-    if (String(values[i][0]) === key) { sh.getRange(i + 1, 2).setValue(json); return; }
-  }
-  sh.appendRow([key, json]);
-}
-
-function _json(obj) {
-  return ContentService
-    .createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-function _readSignatures() {
-  var sh = _ss().getSheetByName(SIGN_SHEET);
-  if (!sh) return [];
-  var values = sh.getDataRange().getValues();
-  if (values.length < 2) return [];
-  var header = values[0].map(function (h) { return String(h).toLowerCase().trim(); });
-  var nameCol = header.indexOf('name');
-  var sigCol = header.indexOf('signature');
-  if (nameCol < 0) nameCol = 0;
-  if (sigCol < 0) sigCol = 1;
-  var out = [];
-  for (var i = 1; i < values.length; i++) {
-    var name = values[i][nameCol];
-    var sig = values[i][sigCol];
-    if (name || sig) out.push({ name: String(name || ''), signature: String(sig || '') });
-  }
-  return out;
-}
-
-/* ---------- GET ---------- */
+// ==========================================
+// 📡 ดึงข้อมูลจาก Sheets (GET Request)
+// ==========================================
 function doGet(e) {
-  var action = ((e && e.parameter && e.parameter.action) || '').trim();
-  switch (action) {
-    case 'getStock':        return _json(_readCollection('stock'));
-    case 'getLedger':       return _json(_readCollection('ledger'));
-    case 'getCertificates': return _json(_readCollection('certificates')); // มี certNo ครบ
-    case 'getReceipts':     return _json(_readCollection('receipts'));
-    case 'get':             return _json(_readCollection('history'));
-    case 'getSignatures':   return _json(_readSignatures());
-    default:                return _json([]);
+  // ไม่มี action -> เสิร์ฟหน้าเว็บ index.html
+  if (!e || !e.parameter || !e.parameter.action) {
+    return HtmlService.createHtmlOutputFromFile('index')
+      .setTitle('JUST WOW COFFEE - Cost Calculator')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1.0');
+  }
+
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const action = e.parameter.action;
+
+  if (action === 'getStock')        return jsonOut(sheetToObjects(ss, 'Stock'));
+  if (action === 'getLedger')       return jsonOut(sheetToObjects(ss, 'Ledger'));
+  if (action === 'get')             return jsonOut(sheetToObjects(ss, 'History'));
+  if (action === 'getReceipts')     return jsonOut(sheetToObjects(ss, 'Receipts'));
+  if (action === 'getCertificates') return jsonOut(sheetToObjects(ss, 'Certificates'));
+  if (action === 'getSettings')     return jsonOut(sheetToObjects(ss, 'Settings'));
+
+  // 🌟 ดึงลายเซ็นจากชีต "sign" : คอลัมน์ A = รูป/ลิงก์, คอลัมน์ B = ชื่อ (แถวแรกเป็นหัวตาราง)
+  if (action === 'getSignatures') {
+    const sheet = ss.getSheetByName('sign');
+    if (!sheet) return jsonOut([]);
+    const data = sheet.getDataRange().getValues();
+    if (data.length <= 1) return jsonOut([]);
+    const result = data.slice(1)
+      .map(row => ({ signature: row[0], name: row[1] }))
+      .filter(item => item.signature || item.name);
+    return jsonOut(result);
+  }
+
+  // action ที่ไม่รู้จัก -> ตอบ array ว่าง (ป้องกัน error ฝั่งหน้าเว็บ)
+  return jsonOut([]);
+}
+
+// ==========================================
+// 🖼️ แปลง Base64 เป็นไฟล์รูปและเก็บลง Drive (คืน URL)
+// ==========================================
+function saveImageToDrive(base64Data, filename) {
+  try {
+    var dataTypeMatch = base64Data.match(/^data:(image\/[a-zA-Z]+);base64,/);
+    var dataType = dataTypeMatch ? dataTypeMatch[1] : 'image/jpeg';
+    var base64String = base64Data.split(',')[1];
+    var blob = Utilities.newBlob(Utilities.base64Decode(base64String), dataType, filename);
+
+    var folder;
+    if (FOLDER_ID) {
+      folder = DriveApp.getFolderById(FOLDER_ID);
+    } else {
+      var folderName = "JWC_Receipts";
+      var folders = DriveApp.getFoldersByName(folderName);
+      if (folders.hasNext()) {
+        folder = folders.next();
+      } else {
+        folder = DriveApp.createFolder(folderName);
+        folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      }
+    }
+
+    var file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return file.getUrl();
+  } catch (err) {
+    Logger.log("Image Upload Error: " + err.message);
+    return null; // อัปโหลดพลาด -> คืน null (จะได้ไม่ยัด Base64 ลง Sheet)
   }
 }
 
-/* ---------- POST ---------- */
+// เขียน array ของ object ลงชีต (เคลียร์แล้วเขียนใหม่ทั้งแผ่น)
+// ✅ แก้ไข: รวมหัวคอลัมน์จาก "ทุก record" (ไม่ใช่แค่ตัวแรก)
+//    เพื่อไม่ให้ฟิลด์ที่บางแถวไม่มี เช่น certNo / เลขที่เอกสาร ตกหล่นหายไป
+function writeObjects(sheet, arr) {
+  sheet.clear();
+  if (arr.length === 0) return;
+
+  // รวมคีย์จากทุก object ตามลำดับที่พบ
+  const headers = [];
+  const seen = {};
+  arr.forEach(obj => {
+    Object.keys(obj || {}).forEach(k => {
+      if (!seen[k]) { seen[k] = true; headers.push(k); }
+    });
+  });
+
+  sheet.appendRow(headers);
+  const rows = arr.map(obj => headers.map(h => {
+    let val = obj[h];
+    if (typeof val === 'object' && val !== null) return JSON.stringify(val);
+    return (val !== undefined && val !== null) ? val : '';
+  }));
+  sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+}
+
+// ==========================================
+// 💾 บันทึกข้อมูลลง Sheets (POST Request)
+// ==========================================
 function doPost(e) {
-  var p = (e && e.parameter) || {};
-  var action = (p.action || '').trim();
-  var data = null;
-  try { data = p.data ? JSON.parse(p.data) : null; } catch (err) { data = null; }
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const action = e.parameter.action;
 
-  var lock = LockService.getScriptLock();
-  try { lock.waitLock(20000); } catch (err) {}
-  try {
-    switch (action) {
-      case 'saveStock':        _writeCollection('stock', data); break;
-      case 'saveLedger':       _writeCollection('ledger', data); break;
-      case 'saveCertificates': _writeCollection('certificates', data); break; // เก็บ certNo + ทุกฟิลด์
-      case 'saveReceipts':     _writeCollection('receipts', data); break;
+  // ---- บันทึกคลังสินค้า (อัปโหลดรูปลง Drive) ----
+  if (action === 'saveStock') {
+    let sheet = ss.getSheetByName('Stock') || ss.insertSheet('Stock');
+    let stockArr = [];
+    try { stockArr = JSON.parse(e.parameter.data); }
+    catch (err) { return ContentService.createTextOutput("JSON Parse Error"); }
 
-      case 'save': { // ต่อท้ายประวัติ 1 รายการ
-        var hs = _readCollection('history');
-        if (data) hs.push(data);
-        _writeCollection('history', hs);
-        break;
+    for (let i = 0; i < stockArr.length; i++) {
+      if (stockArr[i].image && String(stockArr[i].image).startsWith('data:image')) {
+        let dateOnly = stockArr[i].date ? String(stockArr[i].date).split(' ')[0].replace(/\//g, '-') : 'NoDate';
+        let cleanName = stockArr[i].name ? String(stockArr[i].name).replace(/[\\/:*?"<>|]/g, '_') : 'ไม่ระบุ';
+        let fileName = 'Stock_' + dateOnly + '_' + cleanName + '.jpg';
+        const url = saveImageToDrive(stockArr[i].image, fileName);
+        if (url) stockArr[i].image = url;
       }
-      case 'editHistory': { // แก้ไขประวัติตาม id
-        var he = _readCollection('history');
-        if (data && data.id != null) {
-          var idx = -1;
-          for (var i = 0; i < he.length; i++) { if (String(he[i].id) === String(data.id)) { idx = i; break; } }
-          if (idx >= 0) he[idx] = data; else he.push(data);
-        }
-        _writeCollection('history', he);
-        break;
+    }
+    writeObjects(sheet, stockArr);
+    return ContentService.createTextOutput("Stock Sync Success");
+  }
+
+  // ---- บันทึกบัญชีการเงิน (อัปโหลดใบเสร็จ/สลิปลง Drive) ----
+  if (action === 'saveLedger') {
+    let sheet = ss.getSheetByName('Ledger') || ss.insertSheet('Ledger');
+    let ledgerArr = [];
+    try { ledgerArr = JSON.parse(e.parameter.data); }
+    catch (err) { return ContentService.createTextOutput("JSON Parse Error"); }
+
+    for (let i = 0; i < ledgerArr.length; i++) {
+      if (ledgerArr[i].receipt && String(ledgerArr[i].receipt).startsWith('data:image')) {
+        let dateOnly = ledgerArr[i].date ? String(ledgerArr[i].date).split(' ')[0].replace(/\//g, '-') : 'NoDate';
+        let cleanDesc = ledgerArr[i].desc ? String(ledgerArr[i].desc).replace(/[\\/:*?"<>|]/g, '_') : 'ไม่มีรายละเอียด';
+        let fileName = dateOnly + '_' + cleanDesc + '.jpg';
+        const url = saveImageToDrive(ledgerArr[i].receipt, fileName);
+        ledgerArr[i].receipt = url || ""; // อัปโหลดพลาด -> เคลียร์ทิ้ง
       }
-      case 'delete': { // ลบสต๊อกตาม id
-        var st = _readCollection('stock').filter(function (x) { return String(x.id) !== String(p.id); });
-        _writeCollection('stock', st);
+    }
+    writeObjects(sheet, ledgerArr);
+    return ContentService.createTextOutput("Ledger Sync Success");
+  }
+
+  // ---- บันทึกประวัติคำนวณสูตร (เพิ่มทีละแถว) ----
+  if (action === 'save') {
+    let sheet = ss.getSheetByName('History') || ss.insertSheet('History');
+    const d = JSON.parse(e.parameter.data);
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow(['id', 'name', 'cost', 'price', 'margin', 'date', 'ingredients']);
+    } else {
+      const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+      if (headers.indexOf('ingredients') === -1) sheet.getRange(1, headers.length + 1).setValue('ingredients');
+    }
+    sheet.appendRow([d.id, d.name, d.cost, d.price, d.margin, d.date, d.ingredients || '']);
+    return ContentService.createTextOutput("Success");
+  }
+
+  // ---- อัปเดตประวัติคำนวณสูตรเดิม ----
+  if (action === 'editHistory') {
+    let sheet = ss.getSheetByName('History');
+    if (!sheet) return ContentService.createTextOutput("Not Found");
+    const d = JSON.parse(e.parameter.data);
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] == d.id) {
+        sheet.getRange(i + 1, 2).setValue(d.name);
+        sheet.getRange(i + 1, 3).setValue(d.cost);
+        sheet.getRange(i + 1, 4).setValue(d.price);
+        sheet.getRange(i + 1, 5).setValue(d.margin);
+        sheet.getRange(i + 1, 6).setValue(d.date);
+        sheet.getRange(i + 1, 7).setValue(d.ingredients || '');
         break;
       }
     }
-  } finally {
-    try { lock.releaseLock(); } catch (err) {}
+    return ContentService.createTextOutput("History Edited Success");
   }
-  return _json({ ok: true });
+
+  // ---- ลบประวัติคำนวณสูตร ----
+  if (action === 'delete') {
+    let sheet = ss.getSheetByName('History');
+    if (!sheet) return ContentService.createTextOutput("Not Found");
+    const targetId = e.parameter.id;
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] == targetId) { sheet.deleteRow(i + 1); break; }
+    }
+    return ContentService.createTextOutput("Deleted");
+  }
+
+  // ---- บันทึกใบเสร็จรับเงิน ----
+  if (action === 'saveReceipts') {
+    let sheet = ss.getSheetByName('Receipts') || ss.insertSheet('Receipts');
+    let arr = [];
+    try { arr = JSON.parse(e.parameter.data); }
+    catch (err) { return ContentService.createTextOutput("JSON Parse Error"); }
+
+    // อัปโหลดลายเซ็นที่เป็น Base64 ขึ้น Drive แล้วเก็บเป็น URL (กันเกินขีดจำกัด 50,000 ตัวอักษร/ช่อง)
+    for (let i = 0; i < arr.length; i++) {
+      if (arr[i].signature && String(arr[i].signature).startsWith('data:image')) {
+        const url = saveImageToDrive(arr[i].signature, 'Signature_' + (arr[i].receiptNo || Date.now()) + '.png');
+        if (url) arr[i].signature = url;
+      }
+    }
+    writeObjects(sheet, arr);
+    return ContentService.createTextOutput("Receipts Sync Success");
+  }
+
+  // ---- บันทึกใบรับรองแทนใบเสร็จรับเงิน ----
+  if (action === 'saveCertificates') {
+    let sheet = ss.getSheetByName('Certificates') || ss.insertSheet('Certificates');
+    let arr = [];
+    try { arr = JSON.parse(e.parameter.data); }
+    catch (err) { return ContentService.createTextOutput("JSON Parse Error"); }
+
+    for (let i = 0; i < arr.length; i++) {
+      // ✅ อัปโหลดรูปเอกสาร (image) ขึ้น Drive — base64 ยาวเกิน 50,000 ตัวอักษร/ช่อง จะทำให้บันทึกพัง
+      if (arr[i].image && String(arr[i].image).startsWith('data:image')) {
+        const url = saveImageToDrive(arr[i].image, 'CertDoc_' + (arr[i].certNo || arr[i].id || Date.now()) + '.jpg');
+        if (url) arr[i].image = url;
+      }
+      // อัปโหลดสลิป (array ของ Base64) ขึ้น Drive แล้วเก็บเป็น array ของ URL
+      if (Array.isArray(arr[i].slip)) {
+        arr[i].slip = arr[i].slip.map((img, idx) => {
+          if (img && String(img).startsWith('data:image')) {
+            const url = saveImageToDrive(img, 'CertSlip_' + (arr[i].certNo || arr[i].id || Date.now()) + '_' + idx + '.jpg');
+            return url || img;
+          }
+          return img;
+        });
+      }
+    }
+    writeObjects(sheet, arr);
+    return ContentService.createTextOutput("Certs Sync Success");
+  }
+
+  // ---- บันทึกการตั้งค่า ----
+  if (action === 'saveSettings') {
+    let sheet = ss.getSheetByName('Settings') || ss.insertSheet('Settings');
+    let arr = [];
+    try { arr = JSON.parse(e.parameter.data); }
+    catch (err) { return ContentService.createTextOutput("JSON Parse Error"); }
+    writeObjects(sheet, arr);
+    return ContentService.createTextOutput("Settings Sync Success");
+  }
+
+  // action ที่ไม่รู้จัก
+  return ContentService.createTextOutput("Unknown action: " + action);
 }
