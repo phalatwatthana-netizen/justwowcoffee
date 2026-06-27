@@ -96,6 +96,53 @@ function saveImageToDrive(base64Data, filename) {
   }
 }
 
+// ==========================================
+// 🗑️ ลบไฟล์ใน Drive ที่ไม่ถูกอ้างอิงแล้ว
+//    (เช่น เมื่อมีการลบ/แก้ไขรายการในแอป รูปเก่าจะถูกย้ายลงถังขยะ Drive)
+// ==========================================
+function _extractDriveId(url) {
+  if (!url) return null;
+  url = String(url);
+  var m = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  m = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  return null;
+}
+
+function _collectDriveIds(arr, fields) {
+  var set = {};
+  (arr || []).forEach(function (obj) {
+    if (!obj) return;
+    fields.forEach(function (f) {
+      var v = obj[f];
+      if (v == null || v === '') return;
+      // บางฟิลด์ (เช่น slip) เก็บเป็น array หรือ JSON string
+      if (typeof v === 'string' && v.charAt(0) === '[') { try { v = JSON.parse(v); } catch (e) {} }
+      if (Array.isArray(v)) {
+        v.forEach(function (u) { var id = _extractDriveId(u); if (id) set[id] = true; });
+      } else {
+        var id = _extractDriveId(v); if (id) set[id] = true;
+      }
+    });
+  });
+  return set;
+}
+
+// เทียบ "ของเดิมในชีต" กับ "ของใหม่ที่กำลังจะบันทึก" แล้วทิ้งไฟล์ที่หายไป
+function _trashRemovedFiles(oldArr, newArr, fields) {
+  try {
+    var oldSet = _collectDriveIds(oldArr, fields);
+    var newSet = _collectDriveIds(newArr, fields);
+    Object.keys(oldSet).forEach(function (id) {
+      if (!newSet[id]) {
+        try { DriveApp.getFileById(id).setTrashed(true); }
+        catch (e) { Logger.log('Trash fail ' + id + ': ' + e.message); }
+      }
+    });
+  } catch (e) { Logger.log('trashRemoved error: ' + e.message); }
+}
+
 // เขียน array ของ object ลงชีต (เคลียร์แล้วเขียนใหม่ทั้งแผ่น)
 // ✅ แก้ไข: รวมหัวคอลัมน์จาก "ทุก record" (ไม่ใช่แค่ตัวแรก)
 //    เพื่อไม่ให้ฟิลด์ที่บางแถวไม่มี เช่น certNo / เลขที่เอกสาร ตกหล่นหายไป
@@ -135,6 +182,8 @@ function doPost(e) {
     try { stockArr = JSON.parse(e.parameter.data); }
     catch (err) { return ContentService.createTextOutput("JSON Parse Error"); }
 
+    const _oldStock = sheetToObjects(ss, 'Stock'); // เก็บของเดิมไว้เทียบเพื่อลบไฟล์ Drive ที่หายไป
+
     for (let i = 0; i < stockArr.length; i++) {
       if (stockArr[i].image && String(stockArr[i].image).startsWith('data:image')) {
         let dateOnly = stockArr[i].date ? String(stockArr[i].date).split(' ')[0].replace(/\//g, '-') : 'NoDate';
@@ -144,6 +193,7 @@ function doPost(e) {
         if (url) stockArr[i].image = url;
       }
     }
+    _trashRemovedFiles(_oldStock, stockArr, ['image']);
     writeObjects(sheet, stockArr);
     return ContentService.createTextOutput("Stock Sync Success");
   }
@@ -155,6 +205,8 @@ function doPost(e) {
     try { ledgerArr = JSON.parse(e.parameter.data); }
     catch (err) { return ContentService.createTextOutput("JSON Parse Error"); }
 
+    const _oldLedger = sheetToObjects(ss, 'Ledger');
+
     for (let i = 0; i < ledgerArr.length; i++) {
       if (ledgerArr[i].receipt && String(ledgerArr[i].receipt).startsWith('data:image')) {
         let dateOnly = ledgerArr[i].date ? String(ledgerArr[i].date).split(' ')[0].replace(/\//g, '-') : 'NoDate';
@@ -164,6 +216,7 @@ function doPost(e) {
         ledgerArr[i].receipt = url || ""; // อัปโหลดพลาด -> เคลียร์ทิ้ง
       }
     }
+    _trashRemovedFiles(_oldLedger, ledgerArr, ['receipt']);
     writeObjects(sheet, ledgerArr);
     return ContentService.createTextOutput("Ledger Sync Success");
   }
@@ -221,6 +274,8 @@ function doPost(e) {
     try { arr = JSON.parse(e.parameter.data); }
     catch (err) { return ContentService.createTextOutput("JSON Parse Error"); }
 
+    const _oldReceipts = sheetToObjects(ss, 'Receipts');
+
     // อัปโหลดลายเซ็นที่เป็น Base64 ขึ้น Drive แล้วเก็บเป็น URL (กันเกินขีดจำกัด 50,000 ตัวอักษร/ช่อง)
     for (let i = 0; i < arr.length; i++) {
       if (arr[i].signature && String(arr[i].signature).startsWith('data:image')) {
@@ -228,6 +283,7 @@ function doPost(e) {
         if (url) arr[i].signature = url;
       }
     }
+    _trashRemovedFiles(_oldReceipts, arr, ['signature']);
     writeObjects(sheet, arr);
     return ContentService.createTextOutput("Receipts Sync Success");
   }
@@ -238,6 +294,8 @@ function doPost(e) {
     let arr = [];
     try { arr = JSON.parse(e.parameter.data); }
     catch (err) { return ContentService.createTextOutput("JSON Parse Error"); }
+
+    const _oldCerts = sheetToObjects(ss, 'Certificates');
 
     for (let i = 0; i < arr.length; i++) {
       // ✅ อัปโหลดรูปเอกสาร (image) ขึ้น Drive — base64 ยาวเกิน 50,000 ตัวอักษร/ช่อง จะทำให้บันทึกพัง
@@ -256,6 +314,7 @@ function doPost(e) {
         });
       }
     }
+    _trashRemovedFiles(_oldCerts, arr, ['image', 'slip']);
     writeObjects(sheet, arr);
     return ContentService.createTextOutput("Certs Sync Success");
   }
