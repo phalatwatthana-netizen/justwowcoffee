@@ -803,7 +803,7 @@
                                 </div>
                                 <div id="cert-preview-slip-container" class="mt-8 text-center hidden flex-col items-center">
                                     <span class="text-[12px] font-bold text-slate-500 mb-2 border-b border-slate-300 pb-1">หลักฐานการโอนเงิน / สลิปแนบ</span>
-                                    <div id="cert-preview-slip-images" class="flex flex-nowrap justify-center items-start gap-3"></div>
+                                    <div id="cert-preview-slip-images" class="flex flex-wrap justify-center items-start gap-3"></div>
                                 </div>
                             </div>
                         </div>
@@ -1055,7 +1055,7 @@
                                 </div>
                                 <div id="payslip-slip-container" class="mt-12 text-center hidden flex-col items-center">
                                     <span class="text-[12px] font-bold text-slate-500 mb-2 border-b border-slate-300 pb-1">หลักฐานการโอนเงิน / สลิปแนบ</span>
-                                    <div id="payslip-slip-images" class="flex flex-nowrap justify-center items-start gap-3"></div>
+                                    <div id="payslip-slip-images" class="flex flex-wrap justify-center items-start gap-3"></div>
                                 </div>
                             </div>
                         </div>
@@ -1982,7 +1982,7 @@
                 removeBtn.classList.remove('hidden');
                 
                 printImages.innerHTML = currentCertSlipImages.map(src =>
-                    `<img src="${src}" class="max-w-[203px] max-h-[281px] object-contain rounded-lg shadow-sm border border-slate-200">`
+                    `<img src="${src}" class="max-w-[264px] max-h-[365px] object-contain rounded-lg shadow-sm border border-slate-200">`
                 ).join('');
                 printContainer.classList.remove('hidden');
                 printContainer.classList.add('flex');
@@ -3026,7 +3026,7 @@
             if (currentPayslipSlipImages.length > 0) {
                 ui.innerHTML = currentPayslipSlipImages.map((src, i) => `<div class="relative group"><div class="w-9 h-9 rounded-md bg-cover bg-center shadow-sm border border-slate-200" style="background-image:url(${src})"></div><button type="button" onclick="removeSinglePayslipSlip(${i})" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]">x</button></div>`).join('');
                 if (rm) rm.classList.remove('hidden');
-                imgs.innerHTML = currentPayslipSlipImages.map(src => `<img src="${src}" class="max-w-[203px] max-h-[281px] object-contain rounded-lg shadow-sm border border-slate-200">`).join('');
+                imgs.innerHTML = currentPayslipSlipImages.map(src => `<img src="${src}" class="max-w-[264px] max-h-[365px] object-contain rounded-lg shadow-sm border border-slate-200">`).join('');
                 cont.classList.remove('hidden'); cont.classList.add('flex');
             } else {
                 ui.innerHTML = ''; if (rm) rm.classList.add('hidden');
