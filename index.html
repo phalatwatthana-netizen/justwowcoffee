@@ -1042,7 +1042,7 @@
                         <button onclick="downloadPayslip('jpg')" class="flex-1 bg-white border border-mop-primary text-mop-dark hover:bg-mop-lighter/30 font-bold rounded-xl shadow-sm flex items-center justify-center gap-2 text-sm py-2.5">เซฟ JPG</button>
                         <button onclick="downloadPayslip('pdf')" class="flex-1 bg-white border border-red-400 text-red-600 hover:bg-red-50 font-bold rounded-xl shadow-sm flex items-center justify-center gap-2 text-sm py-2.5">เซฟ PDF</button>
                     </div>
-                    <div class="bg-slate-200/50 p-4 sm:p-6 rounded-[24px] border border-slate-200 shadow-inner flex justify-center overflow-x-auto">
+                    <div class="bg-slate-200/50 p-4 sm:p-6 rounded-[24px] border border-slate-200 shadow-inner flex flex-col items-center overflow-auto">
                         <div id="payslip-print-area" class="bg-white shadow-xl border border-slate-300 font-sans text-black relative shrink-0 p-10" style="width:210mm; min-height:297mm;">
                             <div class="border border-slate-400 p-8 pb-16 relative h-full">
                                 <span class="absolute top-3 right-4 text-[13px] font-bold text-mop-dark" id="payslip-preview-no"></span>
@@ -1069,24 +1069,9 @@
                                 </div>
                             </div>
                         </div>
+                        <div id="payslip-real-pages" class="hidden w-full flex-col items-center"></div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Payslip Preview Modal -->
-    <div id="payslip-preview-modal" class="fixed inset-0 z-[90] hidden flex items-center justify-center">
-        <div class="absolute inset-0 bg-slate-900/85 backdrop-blur-sm" onclick="closePayslipPreview()"></div>
-        <div class="relative z-10 bg-white rounded-[24px] p-5 max-w-2xl w-full mx-4 shadow-2xl flex flex-col max-h-[92vh]">
-            <div class="flex justify-between items-center mb-3">
-                <h3 class="text-lg font-bold text-mop-dark flex items-center gap-2"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg> <span id="payslip-preview-title">พรีวิวเอกสาร</span></h3>
-                <button onclick="closePayslipPreview()" class="text-slate-400 hover:text-red-500 bg-slate-100 hover:bg-red-50 p-2 rounded-full transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
-            </div>
-            <div id="payslip-preview-pages" class="flex-1 overflow-y-auto bg-slate-100 rounded-2xl border border-slate-200 p-2 space-y-3 mb-4 hide-scroll text-center"></div>
-            <div class="grid grid-cols-2 gap-3 shrink-0">
-                <button onclick="downloadPayslip('jpg')" class="bg-mop-primary hover:bg-mop-dark text-white py-3 rounded-xl font-bold text-sm shadow-md transition-colors">เซฟ JPG</button>
-                <button onclick="downloadPayslip('pdf')" class="bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-bold text-sm shadow-md transition-colors">เซฟ PDF</button>
             </div>
         </div>
     </div>
@@ -2997,6 +2982,8 @@
             document.getElementById('payslip-form-normal').classList.toggle('hidden', isReal);
             document.getElementById('payslip-form-real').classList.toggle('hidden', !isReal);
             document.getElementById('payslip-body-normal').classList.toggle('hidden', isReal);
+            document.getElementById('payslip-print-area').classList.toggle('hidden', isReal);
+            document.getElementById('payslip-real-pages').classList.toggle('hidden', !isReal);
             const cardTitle = document.querySelector('#payslip-modal h3'); if (cardTitle) cardTitle.textContent = isReal ? 'ข้อมูลสลิปจริง' : 'ข้อมูลการจ่ายค่าจ้าง';
             const slipLabel = document.getElementById('payslip-slip-label'); if (slipLabel) slipLabel.textContent = isReal ? 'แนบรูปสลิปจริง (เต็มหน้า · สูงสุด 3 รูป)' : 'แนบสลิปโอนเงิน (สูงสุด 3 รูป · แสดงท้ายเอกสาร)';
 
@@ -3064,15 +3051,22 @@
             const cont = document.getElementById('payslip-slip-container');
             const imgs = document.getElementById('payslip-slip-images');
             const rm = document.getElementById('payslip-slip-remove-btn');
-            if (!ui || !cont || !imgs) return;
+            if (!ui) return;
+            // ภาพย่อในฟอร์ม (ทุกโหมด)
             if (currentPayslipSlipImages.length > 0) {
                 ui.innerHTML = currentPayslipSlipImages.map((src, i) => `<div class="relative group"><div class="w-9 h-9 rounded-md bg-cover bg-center shadow-sm border border-slate-200" style="background-image:url(${src})"></div><button type="button" onclick="removeSinglePayslipSlip(${i})" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]">x</button></div>`).join('');
                 if (rm) rm.classList.remove('hidden');
-                const realCls = (payslipMode === 'real') ? 'block mx-auto w-auto max-w-full max-h-[240mm] mb-4' : 'max-w-[264px] max-h-[365px]';
-                imgs.innerHTML = currentPayslipSlipImages.map(src => `<img src="${src}" class="${realCls} object-contain rounded-lg shadow-sm border border-slate-200">`).join('');
-                cont.classList.remove('hidden'); cont.classList.add('flex');
             } else {
                 ui.innerHTML = ''; if (rm) rm.classList.add('hidden');
+            }
+            // โหมดสลิปจริง: พรีวิวเป็นหลายหน้า A4
+            if (payslipMode === 'real') { renderRealPages(); return; }
+            // โหมดปกติ: สลิปแสดงท้ายเอกสาร
+            if (!cont || !imgs) return;
+            if (currentPayslipSlipImages.length > 0) {
+                imgs.innerHTML = currentPayslipSlipImages.map(src => `<img src="${src}" class="max-w-[264px] max-h-[365px] object-contain rounded-lg shadow-sm border border-slate-200">`).join('');
+                cont.classList.remove('hidden'); cont.classList.add('flex');
+            } else {
                 imgs.innerHTML = ''; cont.classList.add('hidden'); cont.classList.remove('flex');
             }
         }
@@ -3130,6 +3124,7 @@
             document.getElementById('payslip-preview-total').textContent = totalStr;
             document.getElementById('payslip-preview-baht-text').textContent = total > 0 ? ArabicNumberToText(total) : '';
             const ft = document.getElementById('payslip-form-total'); if (ft) ft.textContent = total.toLocaleString('en-US',{minimumFractionDigits:2});
+            if (payslipMode === 'real') renderRealPages();
         }
 
         async function buildPayslipImage() {
@@ -3142,35 +3137,70 @@
             return canvas;
         }
 
-        // โหมดสลิปจริง: render เอกสารทีละหน้า โดยแต่ละหน้ามีรูปสลิป 1 รูป
-        async function buildRealSlipPages() {
-            const imgsEl = document.getElementById('payslip-slip-images');
-            const all = currentPayslipSlipImages.slice();
+        // โหมดสลิปจริง: render พรีวิวสดเป็นหลายหน้า A4 (หน้าละ 1 รูป)
+        function renderRealPages() {
+            const container = document.getElementById('payslip-real-pages');
+            if (!container) return;
+            const no = currentPayslipNo ? ('เลขที่ ' + currentPayslipNo) : '';
+            const dateVal = document.getElementById('payslip-date').value;
+            let fdate = ''; if (dateVal) { const [y,m,d] = dateVal.split('-'); fdate = `${d}/${m}/${+y+543}`; }
+            const note = (document.getElementById('payslip-real-note')?.value || '').trim();
+            const slips = currentPayslipSlipImages.length ? currentPayslipSlipImages : [null];
+            container.innerHTML = slips.map((src, i) => `
+              <div class="payslip-real-page bg-white shadow-xl border border-slate-300 font-sans text-black relative shrink-0 p-10 mb-6" style="width:210mm; min-height:297mm;">
+                <div class="border border-slate-400 p-8 pb-16 relative h-full">
+                  <span class="absolute top-3 right-4 text-[13px] font-bold text-mop-dark">${no}${slips.length > 1 ? ' · หน้า ' + (i + 1) + '/' + slips.length : ''}</span>
+                  <div class="text-center font-bold text-xl">JUSTWOW COFFEE &amp; ว้าว ว้าว ปังปิ้ง</div>
+                  <div class="text-center font-bold text-lg mb-4 mt-1">หลักฐานการจ่าย (สลิป)</div>
+                  <div class="flex justify-end mb-3 text-[13px]"><span class="mr-2">วันที่</span><span class="border-b border-dotted border-slate-400 w-32 inline-block text-center font-semibold">${fdate}</span></div>
+                  ${note ? `<div class="text-[13px] mb-3">รายละเอียด: <span class="font-semibold">${note.replace(/</g,'&lt;')}</span></div>` : ''}
+                  <div class="flex justify-center items-start mt-4">${src ? `<img src="${src}" class="block mx-auto w-auto max-w-full max-h-[230mm] object-contain rounded border border-slate-200">` : '<div class="text-slate-300 text-sm py-24">— ยังไม่ได้แนบรูปสลิป —</div>'}</div>
+                </div>
+              </div>`).join('');
+        }
+
+        async function captureRealPages() {
+            const pages = document.querySelectorAll('#payslip-real-pages .payslip-real-page');
             const canvases = [];
-            for (let i = 0; i < all.length; i++) {
-                imgsEl.innerHTML = `<img src="${all[i]}" class="block mx-auto w-auto max-w-full max-h-[240mm] mb-4 object-contain rounded-lg shadow-sm border border-slate-200">`;
-                canvases.push(await buildPayslipImage());
+            for (const p of pages) {
+                const sh = p.style.boxShadow, bd = p.style.border;
+                p.style.boxShadow = 'none'; p.style.border = 'none';
+                await waitForImagesLoaded(p);
+                canvases.push(await html2canvas(p, { scale: 2, useCORS: true, backgroundColor: '#ffffff' }));
+                p.style.boxShadow = sh; p.style.border = bd;
             }
-            updatePayslipSlipUI(); // คืนการแสดงผลปกติ
             return canvases;
+        }
+
+        function stackCanvasesToDataUrl(canvases, quality) {
+            if (canvases.length === 1) return canvases[0].toDataURL('image/jpeg', quality);
+            const width = Math.max(...canvases.map(c => c.width)); const gap = 24;
+            const totalH = canvases.reduce((s, c) => s + c.height, 0) + gap * (canvases.length - 1);
+            const big = document.createElement('canvas'); big.width = width; big.height = totalH;
+            const ctx = big.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, width, totalH);
+            let y = 0; canvases.forEach(c => { ctx.drawImage(c, Math.floor((width - c.width) / 2), y); y += c.height + gap; });
+            return big.toDataURL('image/jpeg', quality);
         }
 
         async function downloadPayslip(type) {
             try {
                 const fname = currentPayslipNo || 'Payslip';
 
-                // โหมดสลิปจริง + แนบมากกว่า 1 รูป + PDF -> หน้า A4 ละ 1 รูป
-                if (type === 'pdf' && payslipMode === 'real' && currentPayslipSlipImages.length > 1) {
-                    const canvases = await buildRealSlipPages();
-                    const pdf = new jspdf.jsPDF('p','mm','a4');
-                    const w = pdf.internal.pageSize.getWidth(), h = pdf.internal.pageSize.getHeight();
-                    canvases.forEach((c, i) => {
-                        if (i > 0) pdf.addPage();
-                        let iw = w, ih = (c.height*w)/c.width; if (ih>h){ ih=h; iw=(c.width*h)/c.height; }
-                        pdf.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',(w-iw)/2,0,iw,ih);
-                    });
-                    pdf.save(fname + '.pdf');
-                    showToast('✅ ดาวน์โหลดสลิปแล้ว (' + canvases.length + ' หน้า)', 'success');
+                if (payslipMode === 'real') {
+                    const canvases = await captureRealPages();
+                    if (type === 'pdf') {
+                        const pdf = new jspdf.jsPDF('p','mm','a4');
+                        const w = pdf.internal.pageSize.getWidth(), h = pdf.internal.pageSize.getHeight();
+                        canvases.forEach((c, i) => {
+                            if (i > 0) pdf.addPage();
+                            let iw = w, ih = (c.height*w)/c.width; if (ih>h){ ih=h; iw=(c.width*h)/c.height; }
+                            pdf.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',(w-iw)/2,0,iw,ih);
+                        });
+                        pdf.save(fname + '.pdf');
+                    } else {
+                        const link = document.createElement('a'); link.download = fname + '.jpg'; link.href = stackCanvasesToDataUrl(canvases, 0.92); link.click();
+                    }
+                    showToast('✅ ดาวน์โหลดสลิปแล้ว' + (canvases.length > 1 ? ' (' + canvases.length + ' หน้า)' : ''), 'success');
                     return;
                 }
 
@@ -3186,25 +3216,6 @@
                 }
                 showToast('✅ ดาวน์โหลดสลิปแล้ว', 'success');
             } catch (e) { console.error(e); showToast('❌ สร้างสลิปไม่สำเร็จ', 'error'); }
-        }
-
-        function closePayslipPreview() { document.getElementById('payslip-preview-modal').classList.add('hidden'); }
-
-        async function previewPayslip() {
-            try {
-                showToast('⏳ กำลังสร้างพรีวิว...', 'success');
-                let canvases;
-                if (payslipMode === 'real' && currentPayslipSlipImages.length > 1) {
-                    canvases = await buildRealSlipPages();
-                } else {
-                    canvases = [await buildPayslipImage()];
-                }
-                const cont = document.getElementById('payslip-preview-pages');
-                const titleEl = document.getElementById('payslip-preview-title');
-                if (titleEl) titleEl.textContent = 'พรีวิวเอกสาร' + (canvases.length > 1 ? ' (' + canvases.length + ' หน้า)' : '');
-                cont.innerHTML = canvases.map((c, i) => `<div class="relative inline-block w-full"><img src="${c.toDataURL('image/jpeg', 0.9)}" class="w-full h-auto shadow border border-slate-300 rounded bg-white">${canvases.length > 1 ? `<span class="absolute top-2 right-2 bg-slate-800/70 text-white text-[10px] font-bold px-2 py-0.5 rounded">หน้า ${i + 1}/${canvases.length}</span>` : ''}</div>`).join('');
-                document.getElementById('payslip-preview-modal').classList.remove('hidden');
-            } catch (e) { console.error(e); showToast('❌ สร้างพรีวิวไม่สำเร็จ', 'error'); }
         }
 
         async function savePayslipToLedger() {
@@ -3234,7 +3245,10 @@
             if (dateVal) { const [y,m,d] = dateVal.split('-'); targetDateObj = new Date(y, m-1, d, 12, 0, 0); }
             bumpPayslipCounter(currentPayslipNo);
             let slipImg = null;
-            try { const canvas = await buildPayslipImage(); slipImg = canvas.toDataURL('image/jpeg', 0.7); } catch(e) {}
+            try {
+                if (isReal) { const cs = await captureRealPages(); slipImg = stackCanvasesToDataUrl(cs, 0.7); }
+                else { const canvas = await buildPayslipImage(); slipImg = canvas.toDataURL('image/jpeg', 0.7); }
+            } catch(e) {}
             const entry = {
                 id: targetDateObj.getTime().toString() + '_payslip_' + Math.floor(Math.random()*100000),
                 type: 'expense',
