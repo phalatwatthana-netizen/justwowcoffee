@@ -1039,6 +1039,7 @@
                         <button onclick="savePayslipToLedger()" class="flex-1 bg-mop-dark text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-2 text-sm py-3 hover:bg-mop-primary transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> บันทึกรายจ่าย + แนบสลิป</button>
                     </div>
                     <div class="flex gap-2 sm:gap-3">
+                        <button onclick="previewPayslip()" class="flex-1 bg-slate-700 text-white hover:bg-slate-800 font-bold rounded-xl shadow-sm flex items-center justify-center gap-2 text-sm py-2.5"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg> พรีวิว</button>
                         <button onclick="downloadPayslip('jpg')" class="flex-1 bg-white border border-mop-primary text-mop-dark hover:bg-mop-lighter/30 font-bold rounded-xl shadow-sm flex items-center justify-center gap-2 text-sm py-2.5">เซฟ JPG</button>
                         <button onclick="downloadPayslip('pdf')" class="flex-1 bg-white border border-red-400 text-red-600 hover:bg-red-50 font-bold rounded-xl shadow-sm flex items-center justify-center gap-2 text-sm py-2.5">เซฟ PDF</button>
                     </div>
@@ -1071,6 +1072,22 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payslip Preview Modal -->
+    <div id="payslip-preview-modal" class="fixed inset-0 z-[90] hidden flex items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/85 backdrop-blur-sm" onclick="closePayslipPreview()"></div>
+        <div class="relative z-10 bg-white rounded-[24px] p-5 max-w-2xl w-full mx-4 shadow-2xl flex flex-col max-h-[92vh]">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-lg font-bold text-mop-dark flex items-center gap-2"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg> <span id="payslip-preview-title">พรีวิวเอกสาร</span></h3>
+                <button onclick="closePayslipPreview()" class="text-slate-400 hover:text-red-500 bg-slate-100 hover:bg-red-50 p-2 rounded-full transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            </div>
+            <div id="payslip-preview-pages" class="flex-1 overflow-y-auto bg-slate-100 rounded-2xl border border-slate-200 p-2 space-y-3 mb-4 hide-scroll text-center"></div>
+            <div class="grid grid-cols-2 gap-3 shrink-0">
+                <button onclick="downloadPayslip('jpg')" class="bg-mop-primary hover:bg-mop-dark text-white py-3 rounded-xl font-bold text-sm shadow-md transition-colors">เซฟ JPG</button>
+                <button onclick="downloadPayslip('pdf')" class="bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-bold text-sm shadow-md transition-colors">เซฟ PDF</button>
             </div>
         </div>
     </div>
@@ -3170,6 +3187,25 @@
                 }
                 showToast('✅ ดาวน์โหลดสลิปแล้ว', 'success');
             } catch (e) { console.error(e); showToast('❌ สร้างสลิปไม่สำเร็จ', 'error'); }
+        }
+
+        function closePayslipPreview() { document.getElementById('payslip-preview-modal').classList.add('hidden'); }
+
+        async function previewPayslip() {
+            try {
+                showToast('⏳ กำลังสร้างพรีวิว...', 'success');
+                let canvases;
+                if (payslipMode === 'real' && currentPayslipSlipImages.length > 1) {
+                    canvases = await buildRealSlipPages();
+                } else {
+                    canvases = [await buildPayslipImage()];
+                }
+                const cont = document.getElementById('payslip-preview-pages');
+                const titleEl = document.getElementById('payslip-preview-title');
+                if (titleEl) titleEl.textContent = 'พรีวิวเอกสาร' + (canvases.length > 1 ? ' (' + canvases.length + ' หน้า)' : '');
+                cont.innerHTML = canvases.map((c, i) => `<div class="relative inline-block w-full"><img src="${c.toDataURL('image/jpeg', 0.9)}" class="w-full h-auto shadow border border-slate-300 rounded bg-white">${canvases.length > 1 ? `<span class="absolute top-2 right-2 bg-slate-800/70 text-white text-[10px] font-bold px-2 py-0.5 rounded">หน้า ${i + 1}/${canvases.length}</span>` : ''}</div>`).join('');
+                document.getElementById('payslip-preview-modal').classList.remove('hidden');
+            } catch (e) { console.error(e); showToast('❌ สร้างพรีวิวไม่สำเร็จ', 'error'); }
         }
 
         async function savePayslipToLedger() {
