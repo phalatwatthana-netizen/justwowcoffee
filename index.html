@@ -3126,10 +3126,39 @@
             return canvas;
         }
 
+        // โหมดสลิปจริง: render เอกสารทีละหน้า โดยแต่ละหน้ามีรูปสลิป 1 รูป
+        async function buildRealSlipPages() {
+            const imgsEl = document.getElementById('payslip-slip-images');
+            const all = currentPayslipSlipImages.slice();
+            const canvases = [];
+            for (let i = 0; i < all.length; i++) {
+                imgsEl.innerHTML = `<img src="${all[i]}" class="w-full max-w-[640px] max-h-none mb-4 object-contain rounded-lg shadow-sm border border-slate-200">`;
+                canvases.push(await buildPayslipImage());
+            }
+            updatePayslipSlipUI(); // คืนการแสดงผลปกติ
+            return canvases;
+        }
+
         async function downloadPayslip(type) {
             try {
-                const canvas = await buildPayslipImage();
                 const fname = currentPayslipNo || 'Payslip';
+
+                // โหมดสลิปจริง + แนบมากกว่า 1 รูป + PDF -> หน้า A4 ละ 1 รูป
+                if (type === 'pdf' && payslipMode === 'real' && currentPayslipSlipImages.length > 1) {
+                    const canvases = await buildRealSlipPages();
+                    const pdf = new jspdf.jsPDF('p','mm','a4');
+                    const w = pdf.internal.pageSize.getWidth(), h = pdf.internal.pageSize.getHeight();
+                    canvases.forEach((c, i) => {
+                        if (i > 0) pdf.addPage();
+                        let iw = w, ih = (c.height*w)/c.width; if (ih>h){ ih=h; iw=(c.width*h)/c.height; }
+                        pdf.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',(w-iw)/2,0,iw,ih);
+                    });
+                    pdf.save(fname + '.pdf');
+                    showToast('✅ ดาวน์โหลดสลิปแล้ว (' + canvases.length + ' หน้า)', 'success');
+                    return;
+                }
+
+                const canvas = await buildPayslipImage();
                 if (type === 'jpg') {
                     const link = document.createElement('a'); link.download = fname + '.jpg'; link.href = canvas.toDataURL('image/jpeg', 0.92); link.click();
                 } else {
