@@ -1039,7 +1039,6 @@
                         <button onclick="savePayslipToLedger()" class="flex-1 bg-mop-dark text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-2 text-sm py-3 hover:bg-mop-primary transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> บันทึกรายจ่าย + แนบสลิป</button>
                     </div>
                     <div class="flex gap-2 sm:gap-3">
-                        <button onclick="previewPayslip()" class="flex-1 bg-slate-700 text-white hover:bg-slate-800 font-bold rounded-xl shadow-sm flex items-center justify-center gap-2 text-sm py-2.5"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg> พรีวิว</button>
                         <button onclick="downloadPayslip('jpg')" class="flex-1 bg-white border border-mop-primary text-mop-dark hover:bg-mop-lighter/30 font-bold rounded-xl shadow-sm flex items-center justify-center gap-2 text-sm py-2.5">เซฟ JPG</button>
                         <button onclick="downloadPayslip('pdf')" class="flex-1 bg-white border border-red-400 text-red-600 hover:bg-red-50 font-bold rounded-xl shadow-sm flex items-center justify-center gap-2 text-sm py-2.5">เซฟ PDF</button>
                     </div>
@@ -3069,7 +3068,7 @@
             if (currentPayslipSlipImages.length > 0) {
                 ui.innerHTML = currentPayslipSlipImages.map((src, i) => `<div class="relative group"><div class="w-9 h-9 rounded-md bg-cover bg-center shadow-sm border border-slate-200" style="background-image:url(${src})"></div><button type="button" onclick="removeSinglePayslipSlip(${i})" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]">x</button></div>`).join('');
                 if (rm) rm.classList.remove('hidden');
-                const realCls = (payslipMode === 'real') ? 'w-full max-w-[640px] max-h-none mb-4' : 'max-w-[264px] max-h-[365px]';
+                const realCls = (payslipMode === 'real') ? 'block mx-auto w-auto max-w-full max-h-[240mm] mb-4' : 'max-w-[264px] max-h-[365px]';
                 imgs.innerHTML = currentPayslipSlipImages.map(src => `<img src="${src}" class="${realCls} object-contain rounded-lg shadow-sm border border-slate-200">`).join('');
                 cont.classList.remove('hidden'); cont.classList.add('flex');
             } else {
@@ -3149,7 +3148,7 @@
             const all = currentPayslipSlipImages.slice();
             const canvases = [];
             for (let i = 0; i < all.length; i++) {
-                imgsEl.innerHTML = `<img src="${all[i]}" class="w-full max-w-[640px] max-h-none mb-4 object-contain rounded-lg shadow-sm border border-slate-200">`;
+                imgsEl.innerHTML = `<img src="${all[i]}" class="block mx-auto w-auto max-w-full max-h-[240mm] mb-4 object-contain rounded-lg shadow-sm border border-slate-200">`;
                 canvases.push(await buildPayslipImage());
             }
             updatePayslipSlipUI(); // คืนการแสดงผลปกติ
