@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Code.gs — JUSTWOW COFFEE (Google Apps Script)</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, "Segoe UI", Roboto, "Sarabun", sans-serif; background:#0f172a; color:#e2e8f0; }
+  header { position:sticky; top:0; background:#0b7a51; color:#fff; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px; box-shadow:0 2px 10px rgba(0,0,0,.3); }
+  header h1 { font-size:15px; margin:0; font-weight:800; }
+  header .sub { font-size:11px; opacity:.85; font-weight:500; margin-top:2px; }
+  button { background:#fff; color:#0b7a51; border:none; font-weight:800; padding:10px 16px; border-radius:12px; font-size:13px; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,.2); white-space:nowrap; }
+  button:active { transform:scale(.97); }
+  .hint { background:#fff7ed; color:#9a3412; font-size:12px; padding:10px 16px; border-bottom:1px solid #fed7aa; line-height:1.5; }
+  pre { margin:0; padding:16px; overflow:auto; font-family: "SF Mono", "Fira Code", Consolas, monospace; font-size:12.5px; line-height:1.6; tab-size:2; white-space:pre; }
+  .toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:#16805b; color:#fff; padding:10px 18px; border-radius:12px; font-weight:700; font-size:14px; opacity:0; transition:opacity .25s; pointer-events:none; }
+  .toast.show { opacity:1; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Code.gs — Google Apps Script</h1>
+    <div class="sub">JUSTWOW COFFEE · วางแทนใน Apps Script → Code.gs</div>
+  </div>
+  <button onclick="copyCode()">คัดลอกโค้ด</button>
+</header>
+<div class="hint">วิธีใช้: กด <b>คัดลอกโค้ด</b> → เปิด Google Sheet → Extensions → Apps Script → ลบโค้ดเดิมใน <b>Code.gs</b> → วาง → Save → Deploy (เวอร์ชันใหม่ URL เดิม)</div>
+<pre id="code">// ==========================================
+// 🛠️ ตั้งค่า ID ของ Google Sheets และ Folder
+// ==========================================
+const SPREADSHEET_ID = &#x27;1IaZR3AmvIjNse8nywXPLOU15KECnrmBiF6Z06_gTEco&#x27;;
+
+// เปลี่ยนโฟลเดอร์ ID หากต้องการสร้างโฟลเดอร์แยก เช่น &quot;1A2B3C4D5E6F7G8H9I0J&quot;
+// ถ้าไม่ใส่ ระบบจะสร้างโฟลเดอร์ชื่อ &quot;JWC_Receipts&quot; ให้เองในหน้าแรกของ Drive
+const FOLDER_ID = &#x27;&#x27;;
+
+// ตัวช่วยตอบกลับเป็น JSON
+function jsonOut(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ตัวช่วยอ่านชีตทั้งแผ่นแปลงเป็น array of objects
+function sheetToObjects(ss, sheetName) {
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) return [];
+  const data = sheet.getDataRange().getValues();
+  if (data.length &lt;= 1) return [];
+  const headers = data[0];
+  return data.slice(1).map(row =&gt; {
+    const obj = {};
+    headers.forEach((h, i) =&gt; { obj[h] = row[i]; });
+    return obj;
+  });
+}
+
+// ==========================================
+// 📡 ดึงข้อมูลจาก Sheets (GET Request)
+// ==========================================
+function doGet(e) {
+  // ไม่มี action -&gt; เสิร์ฟหน้าเว็บ index.html
+  if (!e || !e.parameter || !e.parameter.action) {
+    return HtmlService.createHtmlOutputFromFile(&#x27;index&#x27;)
+      .setTitle(&#x27;JUST WOW COFFEE - Cost Calculator&#x27;)
+      .addMetaTag(&#x27;viewport&#x27;, &#x27;width=device-width, initial-scale=1.0&#x27;);
+  }
+
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const action = e.parameter.action;
+
+  if (action === &#x27;getStock&#x27;)        return jsonOut(sheetToObjects(ss, &#x27;Stock&#x27;));
+  if (action === &#x27;getLedger&#x27;)       return jsonOut(sheetToObjects(ss, &#x27;Ledger&#x27;));
+  if (action === &#x27;get&#x27;)             return jsonOut(sheetToObjects(ss, &#x27;History&#x27;));
+  if (action === &#x27;getReceipts&#x27;)     return jsonOut(sheetToObjects(ss, &#x27;Receipts&#x27;));
+  if (action === &#x27;getCertificates&#x27;) return jsonOut(sheetToObjects(ss, &#x27;Certificates&#x27;));
+  if (action === &#x27;getSettings&#x27;)     return jsonOut(sheetToObjects(ss, &#x27;Settings&#x27;));
+
+  // 🌟 ดึงลายเซ็นจากชีต &quot;sign&quot; : คอลัมน์ A = รูป/ลิงก์, คอลัมน์ B = ชื่อ (แถวแรกเป็นหัวตาราง)
+  if (action === &#x27;getSignatures&#x27;) {
+    const sheet = ss.getSheetByName(&#x27;sign&#x27;);
+    if (!sheet) return jsonOut([]);
+    const data = sheet.getDataRange().getValues();
+    if (data.length &lt;= 1) return jsonOut([]);
+    const result = data.slice(1)
+      .map(row =&gt; ({ signature: row[0], name: row[1] }))
+      .filter(item =&gt; item.signature || item.name);
+    return jsonOut(result);
+  }
+
+  // 🖼️ ดึงโลโก้จากชีต &quot;Logo&quot; : คอลัมน์ A = รูป/ลิงก์, คอลัมน์ B = ชื่อ (แถวแรกเป็นหัวตาราง)
+  if (action === &#x27;getLogo&#x27;) {
+    const sheet = ss.getSheetByName(&#x27;Logo&#x27;);
+    if (!sheet) return jsonOut([]);
+    const data = sheet.getDataRange().getValues();
+    if (data.length &lt;= 1) return jsonOut([]);
+    const result = data.slice(1)
+      .map(row =&gt; ({ logo: row[0], name: row[1] }))
+      .filter(item =&gt; item.logo || item.name);
+    return jsonOut(result);
+  }
+
+  // action ที่ไม่รู้จัก -&gt; ตอบ array ว่าง (ป้องกัน error ฝั่งหน้าเว็บ)
+  return jsonOut([]);
+}
+
+// ==========================================
+// 🖼️ แปลง Base64 เป็นไฟล์รูปและเก็บลง Drive (คืน URL)
+// ==========================================
+function saveImageToDrive(base64Data, filename) {
+  try {
+    var dataTypeMatch = base64Data.match(/^data:(image\/[a-zA-Z]+);base64,/);
+    var dataType = dataTypeMatch ? dataTypeMatch[1] : &#x27;image/jpeg&#x27;;
+    var base64String = base64Data.split(&#x27;,&#x27;)[1];
+    var blob = Utilities.newBlob(Utilities.base64Decode(base64String), dataType, filename);
+
+    var folder;
+    if (FOLDER_ID) {
+      folder = DriveApp.getFolderById(FOLDER_ID);
+    } else {
+      var folderName = &quot;JWC_Receipts&quot;;
+      var folders = DriveApp.getFoldersByName(folderName);
+      if (folders.hasNext()) {
+        folder = folders.next();
+      } else {
+        folder = DriveApp.createFolder(folderName);
+        folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      }
+    }
+
+    var file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return file.getUrl();
+  } catch (err) {
+    Logger.log(&quot;Image Upload Error: &quot; + err.message);
+    return null; // อัปโหลดพลาด -&gt; คืน null (จะได้ไม่ยัด Base64 ลง Sheet)
+  }
+}
+
+// ==========================================
+// 🗑️ ลบไฟล์ใน Drive ที่ไม่ถูกอ้างอิงแล้ว
+//    (เช่น เมื่อมีการลบ/แก้ไขรายการในแอป รูปเก่าจะถูกย้ายลงถังขยะ Drive)
+// ==========================================
+function _extractDriveId(url) {
+  if (!url) return null;
+  url = String(url);
+  var m = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  m = url.match(/[?&amp;]id=([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  return null;
+}
+
+function _collectDriveIds(arr, fields) {
+  var set = {};
+  (arr || []).forEach(function (obj) {
+    if (!obj) return;
+    fields.forEach(function (f) {
+      var v = obj[f];
+      if (v == null || v === &#x27;&#x27;) return;
+      // บางฟิลด์ (เช่น slip) เก็บเป็น array หรือ JSON string
+      if (typeof v === &#x27;string&#x27; &amp;&amp; v.charAt(0) === &#x27;[&#x27;) { try { v = JSON.parse(v); } catch (e) {} }
+      if (Array.isArray(v)) {
+        v.forEach(function (u) { var id = _extractDriveId(u); if (id) set[id] = true; });
+      } else {
+        var id = _extractDriveId(v); if (id) set[id] = true;
+      }
+    });
+  });
+  return set;
+}
+
+// เทียบ &quot;ของเดิมในชีต&quot; กับ &quot;ของใหม่ที่กำลังจะบันทึก&quot; แล้วทิ้งไฟล์ที่หายไป
+function _trashRemovedFiles(oldArr, newArr, fields) {
+  try {
+    var oldSet = _collectDriveIds(oldArr, fields);
+    var newSet = _collectDriveIds(newArr, fields);
+    Object.keys(oldSet).forEach(function (id) {
+      if (!newSet[id]) {
+        try { DriveApp.getFileById(id).setTrashed(true); }
+        catch (e) { Logger.log(&#x27;Trash fail &#x27; + id + &#x27;: &#x27; + e.message); }
+      }
+    });
+  } catch (e) { Logger.log(&#x27;trashRemoved error: &#x27; + e.message); }
+}
+
+// เขียน array ของ object ลงชีต (เคลียร์แล้วเขียนใหม่ทั้งแผ่น)
+// ✅ แก้ไข: รวมหัวคอลัมน์จาก &quot;ทุก record&quot; (ไม่ใช่แค่ตัวแรก)
+//    เพื่อไม่ให้ฟิลด์ที่บางแถวไม่มี เช่น certNo / เลขที่เอกสาร ตกหล่นหายไป
+function writeObjects(sheet, arr) {
+  sheet.clear();
+  if (arr.length === 0) return;
+
+  // รวมคีย์จากทุก object ตามลำดับที่พบ
+  const headers = [];
+  const seen = {};
+  arr.forEach(obj =&gt; {
+    Object.keys(obj || {}).forEach(k =&gt; {
+      if (!seen[k]) { seen[k] = true; headers.push(k); }
+    });
+  });
+
+  sheet.appendRow(headers);
+  const rows = arr.map(obj =&gt; headers.map(h =&gt; {
+    let val = obj[h];
+    if (typeof val === &#x27;object&#x27; &amp;&amp; val !== null) return JSON.stringify(val);
+    return (val !== undefined &amp;&amp; val !== null) ? val : &#x27;&#x27;;
+  }));
+  sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+}
+
+// ==========================================
+// 💾 บันทึกข้อมูลลง Sheets (POST Request)
+// ==========================================
+function doPost(e) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const action = e.parameter.action;
+
+  // ---- บันทึกคลังสินค้า (อัปโหลดรูปลง Drive) ----
+  if (action === &#x27;saveStock&#x27;) {
+    let sheet = ss.getSheetByName(&#x27;Stock&#x27;) || ss.insertSheet(&#x27;Stock&#x27;);
+    let stockArr = [];
+    try { stockArr = JSON.parse(e.parameter.data); }
+    catch (err) { return ContentService.createTextOutput(&quot;JSON Parse Error&quot;); }
+
+    const _oldStock = sheetToObjects(ss, &#x27;Stock&#x27;); // เก็บของเดิมไว้เทียบเพื่อลบไฟล์ Drive ที่หายไป
+
+    for (let i = 0; i &lt; stockArr.length; i++) {
+      if (stockArr[i].image &amp;&amp; String(stockArr[i].image).startsWith(&#x27;data:image&#x27;)) {
+        let dateOnly = stockArr[i].date ? String(stockArr[i].date).split(&#x27; &#x27;)[0].replace(/\//g, &#x27;-&#x27;) : &#x27;NoDate&#x27;;
+        let cleanName = stockArr[i].name ? String(stockArr[i].name).replace(/[\\/:*?&quot;&lt;&gt;|]/g, &#x27;_&#x27;) : &#x27;ไม่ระบุ&#x27;;
+        let fileName = &#x27;Stock_&#x27; + dateOnly + &#x27;_&#x27; + cleanName + &#x27;.jpg&#x27;;
+        const url = saveImageToDrive(stockArr[i].image, fileName);
+        if (url) stockArr[i].image = url;
+      }
+    }
+    _trashRemovedFiles(_oldStock, stockArr, [&#x27;image&#x27;]);
+    writeObjects(sheet, stockArr);
+    return ContentService.createTextOutput(&quot;Stock Sync Success&quot;);
+  }
+
+  // ---- บันทึกบัญชีการเงิน (อัปโหลดใบเสร็จ/สลิปลง Drive) ----
+  if (action === &#x27;saveLedger&#x27;) {
+    let sheet = ss.getSheetByName(&#x27;Ledger&#x27;) || ss.insertSheet(&#x27;Ledger&#x27;);
+    let ledgerArr = [];
+    try { ledgerArr = JSON.parse(e.parameter.data); }
+    catch (err) { return ContentService.createTextOutput(&quot;JSON Parse Error&quot;); }
+
+    const _oldLedger = sheetToObjects(ss, &#x27;Ledger&#x27;);
+
+    for (let i = 0; i &lt; ledgerArr.length; i++) {
+      if (ledgerArr[i].receipt &amp;&amp; String(ledgerArr[i].receipt).startsWith(&#x27;data:image&#x27;)) {
+        let dateOnly = ledgerArr[i].date ? String(ledgerArr[i].date).split(&#x27; &#x27;)[0].replace(/\//g, &#x27;-&#x27;) : &#x27;NoDate&#x27;;
+        let cleanDesc = ledgerArr[i].desc ? String(ledgerArr[i].desc).replace(/[\\/:*?&quot;&lt;&gt;|]/g, &#x27;_&#x27;) : &#x27;ไม่มีรายละเอียด&#x27;;
+        let fileName = dateOnly + &#x27;_&#x27; + cleanDesc + &#x27;.jpg&#x27;;
+        const url = saveImageToDrive(ledgerArr[i].receipt, fileName);
+        ledgerArr[i].receipt = url || &quot;&quot;; // อัปโหลดพลาด -&gt; เคลียร์ทิ้ง
+      }
+    }
+    _trashRemovedFiles(_oldLedger, ledgerArr, [&#x27;receipt&#x27;]);
+    writeObjects(sheet, ledgerArr);
+    return ContentService.createTextOutput(&quot;Ledger Sync Success&quot;);
+  }
+
+  // ---- บันทึกประวัติคำนวณสูตร (เพิ่มทีละแถว) ----
+  if (action === &#x27;save&#x27;) {
+    let sheet = ss.getSheetByName(&#x27;History&#x27;) || ss.insertSheet(&#x27;History&#x27;);
+    const d = JSON.parse(e.parameter.data);
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow([&#x27;id&#x27;, &#x27;name&#x27;, &#x27;cost&#x27;, &#x27;price&#x27;, &#x27;margin&#x27;, &#x27;date&#x27;, &#x27;ingredients&#x27;]);
+    } else {
+      const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+      if (headers.indexOf(&#x27;ingredients&#x27;) === -1) sheet.getRange(1, headers.length + 1).setValue(&#x27;ingredients&#x27;);
+    }
+    sheet.appendRow([d.id, d.name, d.cost, d.price, d.margin, d.date, d.ingredients || &#x27;&#x27;]);
+    return ContentService.createTextOutput(&quot;Success&quot;);
+  }
+
+  // ---- อัปเดตประวัติคำนวณสูตรเดิม ----
+  if (action === &#x27;editHistory&#x27;) {
+    let sheet = ss.getSheetByName(&#x27;History&#x27;);
+    if (!sheet) return ContentService.createTextOutput(&quot;Not Found&quot;);
+    const d = JSON.parse(e.parameter.data);
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i &lt; data.length; i++) {
+      if (data[i][0] == d.id) {
+        sheet.getRange(i + 1, 2).setValue(d.name);
+        sheet.getRange(i + 1, 3).setValue(d.cost);
+        sheet.getRange(i + 1, 4).setValue(d.price);
+        sheet.getRange(i + 1, 5).setValue(d.margin);
+        sheet.getRange(i + 1, 6).setValue(d.date);
+        sheet.getRange(i + 1, 7).setValue(d.ingredients || &#x27;&#x27;);
+        break;
+      }
+    }
+    return ContentService.createTextOutput(&quot;History Edited Success&quot;);
+  }
+
+  // ---- ลบประวัติคำนวณสูตร ----
+  if (action === &#x27;delete&#x27;) {
+    let sheet = ss.getSheetByName(&#x27;History&#x27;);
+    if (!sheet) return ContentService.createTextOutput(&quot;Not Found&quot;);
+    const targetId = e.parameter.id;
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i &lt; data.length; i++) {
+      if (data[i][0] == targetId) { sheet.deleteRow(i + 1); break; }
+    }
+    return ContentService.createTextOutput(&quot;Deleted&quot;);
+  }
+
+  // ---- บันทึกใบเสร็จรับเงิน ----
+  if (action === &#x27;saveReceipts&#x27;) {
+    let sheet = ss.getSheetByName(&#x27;Receipts&#x27;) || ss.insertSheet(&#x27;Receipts&#x27;);
+    let arr = [];
+    try { arr = JSON.parse(e.parameter.data); }
+    catch (err) { return ContentService.createTextOutput(&quot;JSON Parse Error&quot;); }
+
+    const _oldReceipts = sheetToObjects(ss, &#x27;Receipts&#x27;);
+
+    // อัปโหลดลายเซ็นที่เป็น Base64 ขึ้น Drive แล้วเก็บเป็น URL (กันเกินขีดจำกัด 50,000 ตัวอักษร/ช่อง)
+    for (let i = 0; i &lt; arr.length; i++) {
+      if (arr[i].signature &amp;&amp; String(arr[i].signature).startsWith(&#x27;data:image&#x27;)) {
+        const url = saveImageToDrive(arr[i].signature, &#x27;Signature_&#x27; + (arr[i].receiptNo || Date.now()) + &#x27;.png&#x27;);
+        if (url) arr[i].signature = url;
+      }
+    }
+    _trashRemovedFiles(_oldReceipts, arr, [&#x27;signature&#x27;]);
+    writeObjects(sheet, arr);
+    return ContentService.createTextOutput(&quot;Receipts Sync Success&quot;);
+  }
+
+  // ---- บันทึกใบรับรองแทนใบเสร็จรับเงิน ----
+  if (action === &#x27;saveCertificates&#x27;) {
+    let sheet = ss.getSheetByName(&#x27;Certificates&#x27;) || ss.insertSheet(&#x27;Certificates&#x27;);
+    let arr = [];
+    try { arr = JSON.parse(e.parameter.data); }
+    catch (err) { return ContentService.createTextOutput(&quot;JSON Parse Error&quot;); }
+
+    const _oldCerts = sheetToObjects(ss, &#x27;Certificates&#x27;);
+
+    for (let i = 0; i &lt; arr.length; i++) {
+      // ✅ อัปโหลดรูปเอกสาร (image) ขึ้น Drive — base64 ยาวเกิน 50,000 ตัวอักษร/ช่อง จะทำให้บันทึกพัง
+      if (arr[i].image &amp;&amp; String(arr[i].image).startsWith(&#x27;data:image&#x27;)) {
+        const url = saveImageToDrive(arr[i].image, &#x27;CertDoc_&#x27; + (arr[i].certNo || arr[i].id || Date.now()) + &#x27;.jpg&#x27;);
+        if (url) arr[i].image = url;
+      }
+      // อัปโหลดสลิป (array ของ Base64) ขึ้น Drive แล้วเก็บเป็น array ของ URL
+      if (Array.isArray(arr[i].slip)) {
+        arr[i].slip = arr[i].slip.map((img, idx) =&gt; {
+          if (img &amp;&amp; String(img).startsWith(&#x27;data:image&#x27;)) {
+            const url = saveImageToDrive(img, &#x27;CertSlip_&#x27; + (arr[i].certNo || arr[i].id || Date.now()) + &#x27;_&#x27; + idx + &#x27;.jpg&#x27;);
+            return url || img;
+          }
+          return img;
+        });
+      }
+    }
+    _trashRemovedFiles(_oldCerts, arr, [&#x27;image&#x27;, &#x27;slip&#x27;]);
+    writeObjects(sheet, arr);
+    return ContentService.createTextOutput(&quot;Certs Sync Success&quot;);
+  }
+
+  // ---- บันทึกการตั้งค่า ----
+  if (action === &#x27;saveSettings&#x27;) {
+    let sheet = ss.getSheetByName(&#x27;Settings&#x27;) || ss.insertSheet(&#x27;Settings&#x27;);
+    let arr = [];
+    try { arr = JSON.parse(e.parameter.data); }
+    catch (err) { return ContentService.createTextOutput(&quot;JSON Parse Error&quot;); }
+    writeObjects(sheet, arr);
+    return ContentService.createTextOutput(&quot;Settings Sync Success&quot;);
+  }
+
+  // action ที่ไม่รู้จัก
+  return ContentService.createTextOutput(&quot;Unknown action: &quot; + action);
+}
+</pre>
+<div class="toast" id="toast">✅ คัดลอกโค้ดแล้ว</div>
+<script>
+function copyCode(){
+  var t = document.getElementById('code').innerText;
+  function done(){ var el=document.getElementById('toast'); el.classList.add('show'); setTimeout(function(){el.classList.remove('show');},1800); }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(t).then(done, function(){ fallback(t); done(); });
+  } else { fallback(t); done(); }
+}
+function fallback(t){
+  var ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta);
+}
+</script>
+</body>
+</html>
