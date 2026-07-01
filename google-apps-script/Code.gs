@@ -59,6 +59,18 @@ function doGet(e) {
     return jsonOut(result);
   }
 
+  // 🖼️ ดึงโลโก้จากชีต "Logo" : คอลัมน์ A = รูป/ลิงก์, คอลัมน์ B = ชื่อ (แถวแรกเป็นหัวตาราง)
+  if (action === 'getLogo') {
+    const sheet = ss.getSheetByName('Logo');
+    if (!sheet) return jsonOut([]);
+    const data = sheet.getDataRange().getValues();
+    if (data.length <= 1) return jsonOut([]);
+    const result = data.slice(1)
+      .map(row => ({ logo: row[0], name: row[1] }))
+      .filter(item => item.logo || item.name);
+    return jsonOut(result);
+  }
+
   // action ที่ไม่รู้จัก -> ตอบ array ว่าง (ป้องกัน error ฝั่งหน้าเว็บ)
   return jsonOut([]);
 }
