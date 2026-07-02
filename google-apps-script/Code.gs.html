@@ -229,7 +229,7 @@ function doPost(e) {
     for (let i = 0; i &lt; stockArr.length; i++) {
       if (stockArr[i].image &amp;&amp; String(stockArr[i].image).startsWith(&#x27;data:image&#x27;)) {
         let dateOnly = stockArr[i].date ? String(stockArr[i].date).split(&#x27; &#x27;)[0].replace(/\//g, &#x27;-&#x27;) : &#x27;NoDate&#x27;;
-        let cleanName = stockArr[i].name ? String(stockArr[i].name).replace(/[\\/:*?&quot;&lt;&gt;|]/g, &#x27;_&#x27;) : &#x27;ไม่ระบุ&#x27;;
+        let cleanName = stockArr[i].name ? String(stockArr[i].name).replace(/[\/:*?&quot;&lt;&gt;|]/g, &#x27;_&#x27;) : &#x27;ไม่ระบุ&#x27;;
         let fileName = &#x27;Stock_&#x27; + dateOnly + &#x27;_&#x27; + cleanName + &#x27;.jpg&#x27;;
         const url = saveImageToDrive(stockArr[i].image, fileName);
         if (url) stockArr[i].image = url;
@@ -252,7 +252,7 @@ function doPost(e) {
     for (let i = 0; i &lt; ledgerArr.length; i++) {
       if (ledgerArr[i].receipt &amp;&amp; String(ledgerArr[i].receipt).startsWith(&#x27;data:image&#x27;)) {
         let dateOnly = ledgerArr[i].date ? String(ledgerArr[i].date).split(&#x27; &#x27;)[0].replace(/\//g, &#x27;-&#x27;) : &#x27;NoDate&#x27;;
-        let cleanDesc = ledgerArr[i].desc ? String(ledgerArr[i].desc).replace(/[\\/:*?&quot;&lt;&gt;|]/g, &#x27;_&#x27;) : &#x27;ไม่มีรายละเอียด&#x27;;
+        let cleanDesc = ledgerArr[i].desc ? String(ledgerArr[i].desc).replace(/[\/:*?&quot;&lt;&gt;|]/g, &#x27;_&#x27;) : &#x27;ไม่มีรายละเอียด&#x27;;
         let fileName = dateOnly + &#x27;_&#x27; + cleanDesc + &#x27;.jpg&#x27;;
         const url = saveImageToDrive(ledgerArr[i].receipt, fileName);
         ledgerArr[i].receipt = url || &quot;&quot;; // อัปโหลดพลาด -&gt; เคลียร์ทิ้ง
@@ -318,14 +318,19 @@ function doPost(e) {
 
     const _oldReceipts = sheetToObjects(ss, &#x27;Receipts&#x27;);
 
-    // อัปโหลดลายเซ็นที่เป็น Base64 ขึ้น Drive แล้วเก็บเป็น URL (กันเกินขีดจำกัด 50,000 ตัวอักษร/ช่อง)
+    // อัปโหลดลายเซ็น + รูปเอกสารใบเสร็จ ขึ้น Drive แล้วเก็บเป็น URL (กันเกินขีดจำกัด 50,000 ตัวอักษร/ช่อง)
     for (let i = 0; i &lt; arr.length; i++) {
       if (arr[i].signature &amp;&amp; String(arr[i].signature).startsWith(&#x27;data:image&#x27;)) {
         const url = saveImageToDrive(arr[i].signature, &#x27;Signature_&#x27; + (arr[i].receiptNo || Date.now()) + &#x27;.png&#x27;);
         if (url) arr[i].signature = url;
       }
+      if (arr[i].image &amp;&amp; String(arr[i].image).startsWith(&#x27;data:image&#x27;)) {
+        const rno = (arr[i].bookNo ? arr[i].bookNo + &#x27;-&#x27; : &#x27;&#x27;) + (arr[i].receiptNo || arr[i].id || Date.now());
+        const url = saveImageToDrive(arr[i].image, &#x27;Receipt_&#x27; + rno + &#x27;.jpg&#x27;);
+        if (url) arr[i].image = url;
+      }
     }
-    _trashRemovedFiles(_oldReceipts, arr, [&#x27;signature&#x27;]);
+    _trashRemovedFiles(_oldReceipts, arr, [&#x27;signature&#x27;, &#x27;image&#x27;]);
     writeObjects(sheet, arr);
     return ContentService.createTextOutput(&quot;Receipts Sync Success&quot;);
   }

@@ -288,14 +288,19 @@ function doPost(e) {
 
     const _oldReceipts = sheetToObjects(ss, 'Receipts');
 
-    // อัปโหลดลายเซ็นที่เป็น Base64 ขึ้น Drive แล้วเก็บเป็น URL (กันเกินขีดจำกัด 50,000 ตัวอักษร/ช่อง)
+    // อัปโหลดลายเซ็น + รูปเอกสารใบเสร็จ ขึ้น Drive แล้วเก็บเป็น URL (กันเกินขีดจำกัด 50,000 ตัวอักษร/ช่อง)
     for (let i = 0; i < arr.length; i++) {
       if (arr[i].signature && String(arr[i].signature).startsWith('data:image')) {
         const url = saveImageToDrive(arr[i].signature, 'Signature_' + (arr[i].receiptNo || Date.now()) + '.png');
         if (url) arr[i].signature = url;
       }
+      if (arr[i].image && String(arr[i].image).startsWith('data:image')) {
+        const rno = (arr[i].bookNo ? arr[i].bookNo + '-' : '') + (arr[i].receiptNo || arr[i].id || Date.now());
+        const url = saveImageToDrive(arr[i].image, 'Receipt_' + rno + '.jpg');
+        if (url) arr[i].image = url;
+      }
     }
-    _trashRemovedFiles(_oldReceipts, arr, ['signature']);
+    _trashRemovedFiles(_oldReceipts, arr, ['signature', 'image']);
     writeObjects(sheet, arr);
     return ContentService.createTextOutput("Receipts Sync Success");
   }
