@@ -586,6 +586,7 @@
                             <label class="text-[11px] font-bold text-mop-dark uppercase tracking-wide mb-1.5 flex items-center gap-1.5"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg> ค้นหาประวัติเอกสารเก่า</label>
                             <input type="text" id="receipt-search-input" placeholder="พิมพ์ชื่อลูกค้า หรือ เล่มที่/เลขที่ หรือ ชื่อสินค้า..." class="input-field !py-2 text-sm bg-white" oninput="searchReceipts()" onfocus="searchReceipts()">
                             <div id="receipt-search-results" class="absolute z-50 left-6 right-6 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto hidden"></div>
+                            <button type="button" onclick="openReceiptHistory()" class="mt-3 w-full bg-white border border-mop-primary text-mop-dark font-bold py-2 rounded-xl text-xs hover:bg-mop-lighter/30 transition-colors flex items-center justify-center gap-1.5 shadow-sm"><svg class="w-4 h-4 text-mop-medium" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> ประวัติการออกใบเสร็จ</button>
                         </div>
                         <div class="p-6 space-y-5">
                             <div class="space-y-5">
@@ -1075,6 +1076,18 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Receipt History Modal -->
+    <div id="receipt-history-modal" class="fixed inset-0 z-[80] hidden flex items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onclick="closeReceiptHistory()"></div>
+        <div class="glass-card bg-white rounded-[28px] p-6 max-w-2xl w-full mx-4 shadow-2xl relative z-10 flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-xl font-bold text-mop-dark flex items-center gap-2"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> ประวัติการออกใบเสร็จ</h3>
+                <button onclick="closeReceiptHistory()" class="text-slate-400 hover:text-red-500 bg-slate-100 hover:bg-red-50 p-2 rounded-full transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            </div>
+            <div id="receipt-history-list-container" class="flex-1 overflow-y-auto pr-1 hide-scroll"></div>
         </div>
     </div>
 
@@ -1592,6 +1605,14 @@
                     stockData = stockData.filter(item => String(item.id) !== String(deleteTargetId)); saveStock();
                 } else if (deleteTargetType === 'ledger') {
                     ledgerData = ledgerData.filter(item => String(item.id) !== String(deleteTargetId)); saveLedger();
+                } else if (deleteTargetType === 'receipt') {
+                    receiptsData = receiptsData.filter(item => String(item.id) !== String(deleteTargetId));
+                    localStorage.setItem('jwc_receipts', JSON.stringify(receiptsData));
+                    if (GOOGLE_SHEET_WEBAPP_URL) {
+                        try { const fd = new FormData(); fd.append('action', 'saveReceipts'); fd.append('data', JSON.stringify(receiptsData)); fetch(GOOGLE_SHEET_WEBAPP_URL, { method: 'POST', body: fd, mode: 'no-cors' }); } catch(e) {}
+                    }
+                    if (typeof renderReceiptHistory === 'function') renderReceiptHistory();
+                    if (typeof updateReceiptDatalists === 'function') updateReceiptDatalists();
                 }
                 hideDeleteModal();
             }
@@ -3822,6 +3843,14 @@
             } else {
                 resultsContainer.innerHTML = '<div class="p-4 text-sm text-slate-400 text-center font-medium">ไม่พบข้อมูลบิลที่ค้นหา</div>'; resultsContainer.classList.remove('hidden');
             }
+        }
+
+        function openReceiptHistory() {
+            renderReceiptHistory();
+            document.getElementById('receipt-history-modal').classList.remove('hidden');
+        }
+        function closeReceiptHistory() {
+            document.getElementById('receipt-history-modal').classList.add('hidden');
         }
 
         function renderReceiptHistory() {
