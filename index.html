@@ -3885,6 +3885,7 @@
 
         function loadOldReceipt(id) {
             const receipt = receiptsData.find(r => r.id === id); if (!receipt) return;
+            if (typeof closeReceiptHistory === 'function') closeReceiptHistory(); // ปิดหน้าต่างประวัติ เพื่อให้เห็นฟอร์ม
             currentEditingReceiptId = receipt.id; document.getElementById('receipt-search-input').value = ''; document.getElementById('receipt-search-results').classList.add('hidden');
             document.getElementById('receipt-book-no').value = receipt.bookNo || ''; document.getElementById('receipt-no').value = receipt.receiptNo || '';
             document.getElementById('receipt-date').value = receipt.dateVal || receipt.date || ''; document.getElementById('receipt-customer').value = receipt.customer || '';
@@ -3919,6 +3920,8 @@
 
             generateReceiptPreview();
             const btn = document.getElementById('btn-save-receipt'); btn.innerHTML = 'อัปเดตเอกสารเก่า'; btn.classList.replace('bg-[#8ccb4a]', 'bg-mop-dark');
+            try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch(e) {}
+            showToast('📝 โหลดใบเสร็จขึ้นมาแก้ไข — แก้แล้วกด "อัปเดตเอกสารเก่า"', 'success');
         }
 
         function generateReceiptPreview() {
