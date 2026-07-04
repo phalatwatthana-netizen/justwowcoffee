@@ -1090,8 +1090,9 @@
             </div>
             <p class="text-[11px] text-slate-500 leading-relaxed mb-2">วางข้อมูลบรรทัดละ 1 รายการ: <b>วันที่ , จำนวนเงิน , รายละเอียด(ถ้ามี)</b> — คั่นด้วยคอมมาหรือแท็บ (คัดลอกจาก Excel ได้เลย) · วันที่รับ <code>24/03/2569</code> หรือ <code>2026-03-24</code></p>
             <div class="mb-2">
-                <label class="text-[11px] font-bold text-slate-500 uppercase mb-1 block">รายละเอียดเริ่มต้น (ถ้าไม่ใส่ในบรรทัด)</label>
-                <input type="text" id="import-income-desc" class="input-field !py-2 bg-slate-50 text-sm" value="ยอดขายรายวัน (ออมสิน)">
+                <label class="text-[11px] font-bold text-slate-500 uppercase mb-1 block">ช่องทางรายรับ / รายละเอียด (เลือกหรือพิมพ์เอง)</label>
+                <input type="text" id="import-income-desc" list="income-channel-list" class="input-field !py-2 bg-slate-50 text-sm" value="ยอดขายรายวัน (ออมสิน)" placeholder="เลือกช่องทาง เช่น ไทยช่วยไทย, G-Wallet...">
+                <datalist id="income-channel-list"></datalist>
             </div>
             <textarea id="import-income-text" rows="9" class="input-field !py-2 bg-slate-50 text-sm font-mono w-full mb-3" placeholder="24/03/2569, 1660&#10;25/03/2569, 1420&#10;..."></textarea>
             <div class="grid grid-cols-2 gap-3 shrink-0">
@@ -3544,6 +3545,17 @@
         function openImportIncome() {
             if (typeof isLedgerAuthenticated !== 'undefined' && !isLedgerAuthenticated) { showToast('⚠️ กรุณาปลดล็อกบัญชีก่อน', 'error'); return; }
             document.getElementById('import-income-text').value = '';
+            // ช่องทางแบบไดนามิก: ค่าตั้งต้น + ช่องทางที่เคยใช้ในบัญชี
+            const presets = [
+                'ยอดขายถุงเงิน (ไทยช่วยไทย)', 'ยอดขายถุงเงิน (G-Wallet)', 'ยอดขายถุงเงิน (QR รับเงิน)',
+                'ยอดขาย (พร้อมเพย์/โอนธนาคาร)', 'ยอดขาย (เงินสด)', 'ยอดขายรายวัน (ออมสิน)'
+            ];
+            const used = (typeof ledgerData !== 'undefined' ? ledgerData : [])
+                .filter(x => x && x.type === 'income' && x.desc)
+                .map(x => String(x.desc).replace(/\s*\[(JW|PV)-\d+\]\s*/i, '').trim());
+            const all = [...new Set([...presets, ...used])].filter(Boolean);
+            const dl = document.getElementById('income-channel-list');
+            if (dl) dl.innerHTML = all.map(v => `<option value="${String(v).replace(/"/g, '&quot;')}">`).join('');
             document.getElementById('import-income-modal').classList.remove('hidden');
         }
         function closeImportIncome() { document.getElementById('import-income-modal').classList.add('hidden'); }
