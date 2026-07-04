@@ -513,6 +513,7 @@
                             <input type="date" id="ledger-filter-date" onchange="document.getElementById('ledger-entry-date').value = this.value; renderLedger()" class="input-field !py-2 !w-auto hidden text-slate-800">
                             <input type="month" id="ledger-filter-month" onchange="renderLedger()" class="input-field !py-2 !w-auto hidden text-slate-800">
                             <input type="number" id="ledger-filter-year" onchange="renderLedger()" class="input-field !py-2 !w-28 hidden text-slate-800" placeholder="2026">
+                            <button onclick="openImportIncome()" class="bg-white text-mop-dark font-bold text-xs sm:text-sm px-4 py-2 rounded-[12px] shadow-sm hover:bg-mop-lighter/40 transition-colors flex items-center gap-1.5 whitespace-nowrap"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"></path></svg> นำเข้ารายรับ</button>
                             <button onclick="openFinReport()" class="bg-white text-mop-dark font-bold text-xs sm:text-sm px-4 py-2 rounded-[12px] shadow-sm hover:bg-mop-lighter/40 transition-colors flex items-center gap-1.5 whitespace-nowrap"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg> ออกรายงาน A4</button>
                         </div>
                     </div>
@@ -1075,6 +1076,27 @@
                         <div id="payslip-real-pages" class="hidden w-full flex-col items-center"></div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Income Modal -->
+    <div id="import-income-modal" class="fixed inset-0 z-[85] hidden flex items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onclick="closeImportIncome()"></div>
+        <div class="glass-card bg-white rounded-[28px] p-6 max-w-lg w-full mx-4 shadow-2xl relative z-10 flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-xl font-bold text-mop-dark flex items-center gap-2"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"></path></svg> นำเข้ารายรับ (หลายรายการ)</h3>
+                <button onclick="closeImportIncome()" class="text-slate-400 hover:text-red-500 bg-slate-100 hover:bg-red-50 p-2 rounded-full transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            </div>
+            <p class="text-[11px] text-slate-500 leading-relaxed mb-2">วางข้อมูลบรรทัดละ 1 รายการ: <b>วันที่ , จำนวนเงิน , รายละเอียด(ถ้ามี)</b> — คั่นด้วยคอมมาหรือแท็บ (คัดลอกจาก Excel ได้เลย) · วันที่รับ <code>24/03/2569</code> หรือ <code>2026-03-24</code></p>
+            <div class="mb-2">
+                <label class="text-[11px] font-bold text-slate-500 uppercase mb-1 block">รายละเอียดเริ่มต้น (ถ้าไม่ใส่ในบรรทัด)</label>
+                <input type="text" id="import-income-desc" class="input-field !py-2 bg-slate-50 text-sm" value="ยอดขายรายวัน (ออมสิน)">
+            </div>
+            <textarea id="import-income-text" rows="9" class="input-field !py-2 bg-slate-50 text-sm font-mono w-full mb-3" placeholder="24/03/2569, 1660&#10;25/03/2569, 1420&#10;..."></textarea>
+            <div class="grid grid-cols-2 gap-3 shrink-0">
+                <button onclick="closeImportIncome()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 py-3 rounded-xl font-bold text-sm transition-colors">ยกเลิก</button>
+                <button onclick="importLedgerIncome()" class="bg-mop-primary hover:bg-mop-dark text-white py-3 rounded-xl font-bold text-sm shadow-md transition-colors">นำเข้าลงบัญชี</button>
             </div>
         </div>
     </div>
@@ -3516,6 +3538,63 @@
             document.getElementById('ledger-total-expense').innerText = totalExpense.toLocaleString('en-US', {minimumFractionDigits: 2});
             const balanceTabEl = document.getElementById('ledger-balance-tab'); if(balanceTabEl) balanceTabEl.innerText = balance.toLocaleString('en-US', {minimumFractionDigits: 2});
             const bentoBalanceEl = document.getElementById('bento-balance'); if(bentoBalanceEl) bentoBalanceEl.innerHTML = `${balance.toLocaleString('en-US', {minimumFractionDigits: 2})} <span class="text-lg text-slate-700 font-medium">฿</span>`;
+        }
+
+        // --- นำเข้ารายรับหลายรายการ (จาก statement / Excel) ---
+        function openImportIncome() {
+            if (typeof isLedgerAuthenticated !== 'undefined' && !isLedgerAuthenticated) { showToast('⚠️ กรุณาปลดล็อกบัญชีก่อน', 'error'); return; }
+            document.getElementById('import-income-text').value = '';
+            document.getElementById('import-income-modal').classList.remove('hidden');
+        }
+        function closeImportIncome() { document.getElementById('import-income-modal').classList.add('hidden'); }
+
+        function parseImportDate(s) {
+            s = String(s || '').trim();
+            let y, m, d, mm;
+            if ((mm = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/))) { y = +mm[1]; m = +mm[2]; d = +mm[3]; }
+            else if ((mm = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/))) { d = +mm[1]; m = +mm[2]; y = +mm[3]; }
+            else return null;
+            if (y > 2400) y -= 543; // พ.ศ. -> ค.ศ.
+            if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+            return new Date(y, m - 1, d, 12, 0, 0);
+        }
+
+        async function importLedgerIncome() {
+            const raw = document.getElementById('import-income-text').value.trim();
+            if (!raw) { showToast('⚠️ กรุณาวางข้อมูล', 'error'); return; }
+            const defaultDesc = (document.getElementById('import-income-desc').value || 'รายรับ').trim();
+            const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+            const entries = [];
+            let errors = 0, ts0 = Date.now();
+            lines.forEach((ln, idx) => {
+                const parts = ln.split(/[\t,]+/).map(s => s.trim());
+                if (parts.length < 2) { errors++; return; }
+                const dateObj = parseImportDate(parts[0]);
+                const amt = parseFloat(String(parts[1]).replace(/[^\d.\-]/g, ''));
+                if (!dateObj || !(amt > 0)) { errors++; return; }
+                const desc = parts.slice(2).join(', ').trim() || defaultDesc;
+                const ts = dateObj.getTime();
+                entries.push({ id: ts.toString() + '_import_' + (ts0 + idx) + Math.floor(Math.random() * 1000), type: 'income', desc: desc, amount: amt, date: getThaiDateTimeStr(dateObj), receipt: null });
+            });
+            if (!entries.length) { showToast('⚠️ ไม่พบข้อมูลที่ถูกต้อง (ตรวจรูปแบบวันที่/จำนวนเงิน)', 'error'); return; }
+
+            // รวมกับประวัติเดิมในชีตก่อนเขียนกลับ (กันข้อมูลเก่าหาย)
+            let base = ledgerData.slice(), serverOk = false;
+            if (GOOGLE_SHEET_WEBAPP_URL) {
+                try { const r = await fetch(GOOGLE_SHEET_WEBAPP_URL + "?action=getLedger"); const dd = await r.json(); if (Array.isArray(dd)) { base = dd.filter(x => x && x.id); serverOk = true; } } catch (e) {}
+            }
+            const byId = new Map();
+            base.forEach(x => { if (x && x.id) byId.set(String(x.id), x); });
+            entries.forEach(e => byId.set(String(e.id), e));
+            ledgerData = Array.from(byId.values());
+            ledgerData.sort((a, b) => getValidDateFromId(b.id).getTime() - getValidDateFromId(a.id).getTime());
+            localStorage.setItem('jwc_ledger', JSON.stringify(ledgerData));
+            if (GOOGLE_SHEET_WEBAPP_URL && (serverOk || base.length > 0)) {
+                try { const fd = new FormData(); fd.append('action', 'saveLedger'); fd.append('data', JSON.stringify(ledgerData)); await fetch(GOOGLE_SHEET_WEBAPP_URL, { method: 'POST', body: fd, mode: 'no-cors' }); } catch (e) {}
+            }
+            renderLedger();
+            closeImportIncome();
+            showToast('✅ นำเข้ารายรับ ' + entries.length + ' รายการสำเร็จ' + (errors ? (' (ข้าม ' + errors + ' บรรทัด)') : ''), 'success');
         }
 
         // --- รายงานการเงิน A4 (PDF / JPG / Excel) ---
