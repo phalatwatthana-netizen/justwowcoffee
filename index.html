@@ -3329,6 +3329,15 @@
             const finalId = targetDateObj.getTime().toString() + '_' + Math.floor(Math.random() * 1000);
 
             const ledgerEntry = { id: finalId, type: type, desc: desc, amount: amt, date: getThaiDateTimeStr(targetDateObj), receipt: currentLedgerReceipt };
+            // เตือนถ้าพบรายการซ้ำ (ประเภท+จำนวนเงิน+รายละเอียด+วันเดียวกัน) แล้วถามยืนยันก่อนบันทึก
+            const dups = findLedgerDuplicates(ledgerEntry);
+            if (dups.length) {
+                const d0 = dups[0];
+                if (!confirm('⚠️ พบรายการนี้อยู่แล้ว ' + dups.length + ' รายการ\n' +
+                    '• ' + (type === 'income' ? 'รับ' : 'จ่าย') + ' ' + amt.toLocaleString() + ' บาท — ' + desc + '\n' +
+                    (d0.date ? '  (บันทึกไว้เมื่อ ' + String(d0.date).split(' ')[0] + ')\n' : '') +
+                    '\nยืนยันบันทึกซ้ำอีกครั้งหรือไม่?')) return;
+            }
             document.getElementById('ledger-desc').value = '';
             document.getElementById('ledger-amount').value = '';
             removeLedgerReceipt();
@@ -3595,6 +3604,12 @@
             if (GOOGLE_SHEET_WEBAPP_URL) {
                 try { const r = await fetch(GOOGLE_SHEET_WEBAPP_URL + "?action=getLedger"); const dd = await r.json(); if (Array.isArray(dd)) { base = dd.filter(x => x && x.id); serverOk = true; } } catch (e) {}
             }
+            // เตือนถ้ารายการที่จะนำเข้าซ้ำกับที่มีอยู่แล้ว (กันการนำเข้าไฟล์เดิมซ้ำ)
+            const baseKeys = new Set(base.map(ledgerDupKey));
+            const dupCount = entries.filter(e => baseKeys.has(ledgerDupKey(e))).length;
+            if (dupCount) {
+                if (!confirm('⚠️ พบว่ามี ' + dupCount + ' จาก ' + entries.length + ' รายการซ้ำกับที่บันทึกไว้แล้ว (วันที่+จำนวนเงิน+รายละเอียดตรงกัน)\n\nอาจเป็นการนำเข้าข้อมูลชุดเดิมซ้ำ ยืนยันนำเข้าต่อหรือไม่?')) return;
+            }
             const byId = new Map();
             base.forEach(x => { if (x && x.id) byId.set(String(x.id), x); });
             entries.forEach(e => byId.set(String(e.id), e));
@@ -3607,6 +3622,20 @@
             renderLedger();
             closeImportIncome();
             showToast('✅ นำเข้ารายรับ ' + entries.length + ' รายการสำเร็จ' + (errors ? (' (ข้าม ' + errors + ' บรรทัด)') : ''), 'success');
+        }
+
+        // ตรวจรายการซ้ำในบัญชี: จับคู่ด้วย ประเภท|จำนวนเงิน|รายละเอียด|วัน
+        function ledgerDupKey(item) {
+            if (!item) return '';
+            const day = getValidDateFromId(item.id);
+            const dayKey = isNaN(day.getTime()) ? String(item.date || '').split(' ')[0] : day.toDateString();
+            return (item.type || '') + '|' + (parseFloat(item.amount) || 0) + '|' + String(item.desc || '').trim() + '|' + dayKey;
+        }
+        // คืนรายการเดิมในบัญชีที่ซ้ำกับ entry (ไม่นับตัวเอง)
+        function findLedgerDuplicates(entry) {
+            if (!entry) return [];
+            const key = ledgerDupKey(entry);
+            return ledgerData.filter(x => x && x.id && x.id !== entry.id && ledgerDupKey(x) === key);
         }
 
         // --- รายงานการเงิน A4 (PDF / JPG / Excel) ---
