@@ -3717,7 +3717,7 @@
                 const media = isPdf
                     ? `<iframe src="${esc(src)}" class="media"></iframe>`
                     : `<img src="${esc(src)}" class="media" alt="attachment ${i+1}" />`;
-                const cap = `#${i+1} • ${esc(a.dateStr || '')} • ${esc(a.tag)}${a.detail ? ' — ' + esc(a.detail) : ''}`;
+                const cap = `${esc(a.dateStr || '')} • ${esc(a.tag)}${a.detail ? ' — ' + esc(a.detail) : ''}`;
                 return `<div class="sheet"><div class="cap">${cap}</div><div class="wrap">${media}</div></div>`;
             }).join('');
             const html = `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>ไฟล์แนบ ${esc(label)}</title>
