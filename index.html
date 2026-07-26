@@ -514,6 +514,7 @@
                             <input type="month" id="ledger-filter-month" onchange="renderLedger()" class="input-field !py-2 !w-auto hidden text-slate-800">
                             <input type="number" id="ledger-filter-year" onchange="renderLedger()" class="input-field !py-2 !w-28 hidden text-slate-800" placeholder="2026">
                             <button onclick="openImportIncome()" class="bg-white text-mop-dark font-bold text-xs sm:text-sm px-4 py-2 rounded-[12px] shadow-sm hover:bg-mop-lighter/40 transition-colors flex items-center gap-1.5 whitespace-nowrap"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"></path></svg> นำเข้ารายรับ</button>
+                            <button onclick="openAttachmentPrint()" class="bg-white text-mop-dark font-bold text-xs sm:text-sm px-4 py-2 rounded-[12px] shadow-sm hover:bg-mop-lighter/40 transition-colors flex items-center gap-1.5 whitespace-nowrap"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg> รวมไฟล์แนบ (พิมพ์)</button>
                             <button onclick="openFinReport()" class="bg-white text-mop-dark font-bold text-xs sm:text-sm px-4 py-2 rounded-[12px] shadow-sm hover:bg-mop-lighter/40 transition-colors flex items-center gap-1.5 whitespace-nowrap"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg> ออกรายงาน A4</button>
                         </div>
                     </div>
@@ -3636,6 +3637,112 @@
             if (!entry) return [];
             const key = ledgerDupKey(entry);
             return ledgerData.filter(x => x && x.id && x.id !== entry.id && ledgerDupKey(x) === key);
+        }
+
+        // --- รวมไฟล์แนบ (สลิป/ใบรับรอง/ใบเสร็จ) เพื่อพิมพ์เป็นชุดตามช่วง วัน/เดือน/ปี ---
+        // ใช้ตัวกรองเดียวกับหน้าบัญชี (ledger-filter-*) เพื่อกำหนดช่วงเวลา
+        function attachPeriodMatcher() {
+            const t = document.getElementById('ledger-filter-type')?.value || 'all';
+            const fd = document.getElementById('ledger-filter-date')?.value || '';
+            const fm = document.getElementById('ledger-filter-month')?.value || '';
+            const fy = document.getElementById('ledger-filter-year')?.value || '';
+            const months = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+            let label = 'ทั้งหมด';
+            if (t === 'date' && fd) { const [y,m,dd] = fd.split('-'); label = `วันที่ ${dd}/${m}/${+y+543}`; }
+            else if (t === 'month' && fm) { const [y,m] = fm.split('-'); label = `เดือน${months[+m-1]} ${+y+543}`; }
+            else if (t === 'year' && fy) { label = `ปี ${+fy+543}`; }
+            const match = (d) => {
+                if (t === 'all') return true;
+                if (!d || isNaN(d.getTime())) return false;
+                if (t === 'date' && fd) { const [y,m,dd] = fd.split('-'); return d.getFullYear()===+y && d.getMonth()+1===+m && d.getDate()===+dd; }
+                if (t === 'month' && fm) { const [y,m] = fm.split('-'); return d.getFullYear()===+y && d.getMonth()+1===+m; }
+                if (t === 'year' && fy) return d.getFullYear()===+fy;
+                return true;
+            };
+            return { match, label };
+        }
+
+        // หาวันที่เอกสาร: ใช้ช่องวันที่ (YYYY-MM-DD) ก่อน ถ้าไม่มีค่อย fallback ไปที่ id (timestamp)
+        function attachDocDate(ymd, fallbackId) {
+            if (ymd && /^\d{4}-\d{2}-\d{2}/.test(String(ymd))) { const [y,m,d] = String(ymd).split('-'); return new Date(+y, +m-1, +d, 12, 0, 0); }
+            const byId = getValidDateFromId(fallbackId);
+            return (byId && !isNaN(byId.getTime())) ? byId : new Date(NaN);
+        }
+
+        function collectAttachments() {
+            const { match, label } = attachPeriodMatcher();
+            const list = [];
+            // 1) สลิปในบัญชีรับ-จ่าย (รวมสลิปจ่ายค่าจ้าง/สาธารณูปโภคที่เก็บเป็นรายการในบัญชี)
+            ledgerData.forEach(it => {
+                if (!it || !it.receipt) return;
+                const d = getValidDateFromId(it.id);
+                if (!match(d)) return;
+                const isPay = String(it.id).includes('_payslip_');
+                list.push({
+                    url: it.receipt, date: d,
+                    tag: isPay ? 'สลิปจ่าย (ค่าจ้าง/สาธารณูปโภค)' : (it.type === 'income' ? 'สลิปรับ' : 'สลิปจ่าย'),
+                    detail: (it.desc || '') + ' — ' + (parseFloat(it.amount) || 0).toLocaleString() + ' บาท',
+                    dateStr: String(it.date || '').split(' ')[0]
+                });
+            });
+            // 2) ใบรับรอง + สลิปแนบ
+            (typeof certificatesData !== 'undefined' ? certificatesData : []).forEach(c => {
+                if (!c) return;
+                const d = attachDocDate(c.date, c.id);
+                if (!match(d)) return;
+                const no = c.certNo || '';
+                if (c.image) list.push({ url: c.image, date: d, tag: 'ใบรับรอง ' + no, detail: c.payee ? 'ผู้เบิกจ่าย: ' + c.payee : '', dateStr: c.date || '' });
+                const slips = Array.isArray(c.slip) ? c.slip : (c.slip ? [c.slip] : []);
+                slips.forEach((s, i) => { if (s) list.push({ url: s, date: d, tag: 'สลิปแนบใบรับรอง ' + no + ' (' + (i+1) + ')', detail: '', dateStr: c.date || '' }); });
+            });
+            // 3) ใบเสร็จรับเงิน
+            (typeof receiptsData !== 'undefined' ? receiptsData : []).forEach(r => {
+                if (!r || !r.image) return;
+                const d = attachDocDate(r.dateVal, r.id);
+                if (!match(d)) return;
+                const no = (r.bookNo ? r.bookNo + '/' : '') + (r.receiptNo || '');
+                list.push({ url: r.image, date: d, tag: 'ใบเสร็จ ' + no, detail: r.customer || '', dateStr: r.dateVal || '' });
+            });
+            list.sort((a, b) => ((a.date && a.date.getTime()) || 0) - ((b.date && b.date.getTime()) || 0));
+            return { list, label };
+        }
+
+        function openAttachmentPrint() {
+            const { list, label } = collectAttachments();
+            if (!list.length) { showToast('ไม่พบไฟล์แนบในช่วง' + (label === 'ทั้งหมด' ? 'ที่เลือก' : label), 'error'); return; }
+            const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+            const pages = list.map((a, i) => {
+                const src = toDirectImageUrl(a.url);
+                const isPdf = typeof a.url === 'string' && a.url.startsWith('data:application/pdf');
+                const media = isPdf
+                    ? `<iframe src="${esc(src)}" class="media"></iframe>`
+                    : `<img src="${esc(src)}" class="media" alt="attachment ${i+1}" />`;
+                const cap = `#${i+1} • ${esc(a.dateStr || '')} • ${esc(a.tag)}${a.detail ? ' — ' + esc(a.detail) : ''}`;
+                return `<div class="sheet"><div class="cap">${cap}</div><div class="wrap">${media}</div></div>`;
+            }).join('');
+            const html = `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>ไฟล์แนบ ${esc(label)}</title>
+            <style>
+              @page { size: A4; margin: 8mm; }
+              * { box-sizing: border-box; }
+              body { margin:0; font-family:'Sarabun','TH Sarabun New','Segoe UI',sans-serif; background:#f1f5f9; }
+              .bar { position: sticky; top:0; z-index:10; background:#2e7d32; color:#fff; padding:10px 14px; display:flex; gap:12px; align-items:center; font-weight:700; }
+              .bar button { background:#fff; color:#2e7d32; border:0; border-radius:8px; padding:8px 18px; font-weight:700; cursor:pointer; font-size:14px; }
+              .bar .info { font-size:13px; font-weight:400; opacity:.92; }
+              .sheet { width:194mm; min-height:277mm; margin:10px auto; padding:6mm; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.1); page-break-after: always; display:flex; flex-direction:column; }
+              .sheet:last-child { page-break-after: auto; }
+              .cap { font-size:13px; color:#334155; border-bottom:1px solid #e2e8f0; padding-bottom:6px; margin-bottom:8px; font-weight:600; }
+              .wrap { flex:1; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+              img.media { max-width:100%; max-height:255mm; object-fit:contain; }
+              iframe.media { width:100%; height:255mm; border:0; }
+              @media print { body { background:#fff; } .bar { display:none; } .sheet { margin:0; box-shadow:none; padding:0; } }
+            </style></head><body>
+              <div class="bar"><button onclick="window.print()">🖨️ พิมพ์ / บันทึก PDF</button><span class="info">รวมไฟล์แนบ: ${esc(label)} — ${list.length} ไฟล์ (1 ไฟล์ / 1 หน้า A4)</span></div>
+              ${pages}
+            </body></html>`;
+            const w = window.open('', '_blank');
+            if (!w) { showToast('เบราว์เซอร์บล็อกป๊อปอัพ กรุณาอนุญาต popup แล้วลองใหม่', 'error'); return; }
+            w.document.open(); w.document.write(html); w.document.close();
+            showToast('เปิดหน้ารวมไฟล์แนบ ' + list.length + ' ไฟล์ — กดปุ่ม "พิมพ์" เพื่อบันทึกเป็น PDF', 'success');
         }
 
         // --- รายงานการเงิน A4 (PDF / JPG / Excel) ---
