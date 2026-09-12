@@ -1112,6 +1112,19 @@
         </div>
     </div>
 
+    <!-- Import Success Popup -->
+    <div id="import-success-modal" class="fixed inset-0 z-[95] hidden flex items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/70 backdrop-blur-sm" onclick="closeImportSuccess()"></div>
+        <div class="glass-card bg-white rounded-[28px] p-7 max-w-xs w-full mx-4 shadow-2xl relative z-10 text-center">
+            <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-green-100 flex items-center justify-center">
+                <svg class="w-9 h-9 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+            </div>
+            <h3 class="text-lg font-bold text-mop-dark mb-1">นำเข้าสำเร็จ</h3>
+            <p id="import-success-msg" class="text-sm text-slate-500 mb-5 leading-relaxed"></p>
+            <button onclick="closeImportSuccess()" class="w-full bg-mop-primary hover:bg-mop-dark text-white py-3 rounded-xl font-bold text-sm shadow-md transition-colors">ตกลง</button>
+        </div>
+    </div>
+
     <!-- Receipt History Modal -->
     <div id="receipt-history-modal" class="fixed inset-0 z-[80] hidden flex items-center justify-center">
         <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onclick="closeReceiptHistory()"></div>
@@ -3682,23 +3695,30 @@
             const monthAlt = 'ม\\.ค\\.|ก\\.พ\\.|มี\\.ค\\.|เม\\.ย\\.|พ\\.ค\\.|มิ\\.ย\\.|ก\\.ค\\.|ส\\.ค\\.|ก\\.ย\\.|ต\\.ค\\.|พ\\.ย\\.|ธ\\.ค\\.';
             const dateRe = new RegExp('^\\s*(\\d{1,2})\\s*(' + monthAlt + ')\\s*(\\d{2})\\s*-\\s*\\d{1,2}:\\d{2}:\\d{2}');
             const amtRe = /([\d,]+\.\d{2})\s*(รับเงิน|คืนเงิน)/;
+            const chanOf = txt => {
+                if (/ไทยช่วยไทย/.test(txt)) return 'ไทยช่วยไทย';
+                if (/QR/i.test(txt)) return 'QR';
+                if (/G-?Wallet/i.test(txt)) return 'G-Wallet';
+                return null;
+            };
             const byDayCh = {}; const byChannel = {}; let total = 0, count = 0, refunds = 0;
-            lines.forEach(line => {
-                const dm = line.match(dateRe); if (!dm) return;
-                const am = line.match(amtRe); if (!am) return;
-                if (am[2] === 'คืนเงิน') { refunds++; return; }
-                const amt = parseFloat(am[1].replace(/,/g, '')); if (!(amt > 0)) return;
-                let ch = 'อื่นๆ';
-                if (line.indexOf('ไทยช่วยไทย') >= 0) ch = 'ไทยช่วยไทย';
-                else if (/QR/i.test(line)) ch = 'QR';
-                else if (/G-?Wallet/i.test(line)) ch = 'G-Wallet';
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                const dm = line.match(dateRe); if (!dm) continue;
+                const am = line.match(amtRe); if (!am) continue;
+                if (am[2] === 'คืนเงิน') { refunds++; continue; }
+                const amt = parseFloat(am[1].replace(/,/g, '')); if (!(amt > 0)) continue;
+                // ช่องทาง: หาในบรรทัดนี้ก่อน ถ้าไม่เจอค่อยดูบรรทัดถัดไป (pdf.js อาจตัดคำช่องทางไปอีกบรรทัด)
+                let ch = chanOf(line);
+                if (!ch) { for (let j = 1; j <= 2 && i + j < lines.length; j++) { if (lines[i + j].match(dateRe)) break; const c = chanOf(lines[i + j]); if (c) { ch = c; break; } } }
+                if (!ch) ch = 'อื่นๆ';
                 const y = +dm[3] + 2500; // 69 -> 2569
                 const key = String(+dm[1]).padStart(2, '0') + '/' + String(monthMap[dm[2]]).padStart(2, '0') + '/' + y;
                 const k2 = key + '||' + ch;
                 byDayCh[k2] = Math.round(((byDayCh[k2] || 0) + amt) * 100) / 100;
                 byChannel[ch] = Math.round(((byChannel[ch] || 0) + amt) * 100) / 100;
                 total = Math.round((total + amt) * 100) / 100; count++;
-            });
+            }
             return { byDayCh, byChannel, total, count, refunds };
         }
 
@@ -3814,8 +3834,15 @@
             }
             renderLedger();
             closeImportIncome();
-            showToast('✅ นำเข้ารายรับ ' + entries.length + ' รายการสำเร็จ' + (errors ? (' (ข้าม ' + errors + ' บรรทัด)') : ''), 'success');
+            const total = entries.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+            showImportSuccess('นำเข้ารายรับ <b>' + entries.length + '</b> รายการ<br>รวม <b>' + total.toLocaleString(undefined, { minimumFractionDigits: 2 }) + '</b> บาท' + (errors ? '<br><span class="text-amber-600">ข้าม ' + errors + ' บรรทัดที่รูปแบบไม่ถูกต้อง</span>' : ''));
         }
+
+        function showImportSuccess(msgHtml) {
+            const el = document.getElementById('import-success-msg'); if (el) el.innerHTML = msgHtml;
+            document.getElementById('import-success-modal').classList.remove('hidden');
+        }
+        function closeImportSuccess() { document.getElementById('import-success-modal').classList.add('hidden'); }
 
         // ตรวจรายการซ้ำในบัญชี: จับคู่ด้วย ประเภท|จำนวนเงิน|รายละเอียด|วัน
         function ledgerDupKey(item) {
