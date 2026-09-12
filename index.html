@@ -564,6 +564,7 @@
                                     <button onclick="openPayslipFromLedger('utility')" class="w-full bg-white border border-sky-400 text-sky-700 font-bold py-2 rounded-xl text-[11px] hover:bg-sky-50 transition-colors flex items-center justify-center gap-1.5 shadow-sm"><svg class="w-3.5 h-3.5 text-sky-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> ออกสลิปค่าสาธารณูปโภค</button>
                                     <button onclick="openPayslipFromLedger('real')" class="w-full bg-white border border-slate-400 text-slate-700 font-bold py-2 rounded-xl text-[11px] hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5 shadow-sm"><svg class="w-3.5 h-3.5 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg> ออกสลิปจริง (แนบรูป)</button>
                                     <button onclick="goToReceiveStock()" class="w-full bg-white border border-green-500 text-green-700 font-bold py-2 rounded-xl text-[11px] hover:bg-green-50 transition-colors flex items-center justify-center gap-1.5 shadow-sm"><svg class="w-3.5 h-3.5 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg> รับเข้าสต๊อก / วัตถุดิบใหม่</button>
+                                    <button onclick="openOcrModal()" class="w-full bg-white border border-purple-400 text-purple-700 font-bold py-2 rounded-xl text-[11px] hover:bg-purple-50 transition-colors flex items-center justify-center gap-1.5 shadow-sm"><svg class="w-3.5 h-3.5 text-purple-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg> อ่านภาพ (OCR) แนบสลิป</button>
                                 </div>
                             </div>
                         </section>
@@ -1124,6 +1125,50 @@
             <h3 class="text-lg font-bold text-mop-dark mb-1">นำเข้าสำเร็จ</h3>
             <p id="import-success-msg" class="text-sm text-slate-500 mb-5 leading-relaxed"></p>
             <button onclick="closeImportSuccess()" class="w-full bg-mop-primary hover:bg-mop-dark text-white py-3 rounded-xl font-bold text-sm shadow-md transition-colors">ตกลง</button>
+        </div>
+    </div>
+
+    <!-- OCR Reader Modal -->
+    <div id="ocr-modal" class="fixed inset-0 z-[86] hidden flex items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onclick="closeOcrModal()"></div>
+        <div class="glass-card bg-white rounded-[28px] p-6 max-w-lg w-full mx-4 shadow-2xl relative z-10 flex flex-col max-h-[92vh]">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-xl font-bold text-mop-dark flex items-center gap-2"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg> อ่านข้อมูลจากภาพ (OCR)</h3>
+                <button onclick="closeOcrModal()" class="text-slate-400 hover:text-red-500 bg-slate-100 hover:bg-red-50 p-2 rounded-full transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            </div>
+            <p class="text-[11px] text-slate-500 mb-2 leading-relaxed">ลากภาพสลิป/ใบเสร็จ/ออเดอร์มาวาง หรือเลือกไฟล์ — ระบบจะถอดข้อความและดึงยอดเงิน/วันที่ให้ ตรวจ/แก้ก่อนเติมลงฟอร์มบันทึก (ภาษาไทยอาจอ่านคลาดเคลื่อนบ้าง ตัวเลข/วันที่แม่นกว่า)</p>
+            <div class="overflow-y-auto pr-1 hide-scroll">
+                <div id="ocr-drop" ondragover="event.preventDefault(); this.classList.add('ring-2','ring-mop-primary','bg-mop-lighter/40')" ondragleave="this.classList.remove('ring-2','ring-mop-primary','bg-mop-lighter/40')" ondrop="handleOcrDrop(event)" class="p-4 rounded-xl border-2 border-dashed border-mop-primary/40 bg-mop-lighter/20 text-center transition-all">
+                    <input type="file" id="ocr-file" accept="image/*" class="hidden" onchange="handleOcrPick(event)">
+                    <img id="ocr-preview" src="" class="hidden mx-auto max-h-40 rounded-lg shadow-sm border border-slate-200 mb-2 object-contain">
+                    <div class="text-[11px] text-mop-dark/70 font-semibold mb-2">ลากภาพมาวางที่นี่ หรือ</div>
+                    <button type="button" onclick="document.getElementById('ocr-file').click()" class="bg-mop-dark hover:bg-mop-primary text-white px-4 py-2 rounded-xl font-bold text-xs transition-colors">เลือกรูปภาพ</button>
+                </div>
+                <div id="ocr-status" class="text-[11px] text-slate-500 mt-2 leading-relaxed"></div>
+
+                <div id="ocr-result" class="hidden mt-3 space-y-3">
+                    <div>
+                        <label class="text-[11px] font-bold text-slate-500 uppercase mb-1 block">ยอดเงินที่พบ (กดเลือก)</label>
+                        <div id="ocr-amount-chips" class="flex flex-wrap gap-1.5 mb-2"></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div><label class="text-[11px] font-bold text-slate-500 uppercase mb-1 block">จำนวนเงิน</label><input type="number" id="ocr-amount" class="input-field !py-2 text-sm text-right font-bold" placeholder="0.00"></div>
+                        <div><label class="text-[11px] font-bold text-slate-500 uppercase mb-1 block">ประเภท</label><select id="ocr-type" class="input-field !py-2 text-sm font-semibold"><option value="expense">รายจ่าย (-)</option><option value="income">รายรับ (+)</option></select></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div><label class="text-[11px] font-bold text-slate-500 uppercase mb-1 block">วันที่</label><input type="date" id="ocr-date" class="input-field !py-2 text-sm"></div>
+                        <div><label class="text-[11px] font-bold text-slate-500 uppercase mb-1 block">รายละเอียด</label><input type="text" id="ocr-desc" class="input-field !py-2 text-sm" placeholder="เช่น ซื้อวัตถุดิบ..."></div>
+                    </div>
+                    <details class="bg-slate-50 rounded-xl p-2">
+                        <summary class="text-[11px] font-bold text-slate-500 cursor-pointer select-none">ข้อความที่อ่านได้ (แก้ไข/คัดลอกได้)</summary>
+                        <textarea id="ocr-rawtext" rows="6" class="input-field !py-2 bg-white text-[11px] font-mono w-full mt-2"></textarea>
+                    </details>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3 mt-3 shrink-0">
+                <button onclick="closeOcrModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 py-3 rounded-xl font-bold text-sm transition-colors">ยกเลิก</button>
+                <button id="ocr-apply-btn" onclick="applyOcrToLedger()" disabled class="bg-mop-primary hover:bg-mop-dark text-white py-3 rounded-xl font-bold text-sm shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">เติมลงฟอร์ม + แนบสลิป</button>
+            </div>
         </div>
     </div>
 
@@ -3009,6 +3054,151 @@
             if (!/^image\//.test(f.type) && f.type !== 'application/pdf' && !/\.(png|jpe?g|webp|gif|pdf)$/i.test(f.name || '')) { showToast('⚠️ รองรับเฉพาะรูปภาพหรือ PDF', 'error'); return; }
             setLedgerReceiptFromFile(f);
             showToast('📎 แนบไฟล์เข้ารายการที่กำลังบันทึกแล้ว', 'success');
+        }
+
+        // === OCR: อ่านข้อมูลจากภาพ (Tesseract.js โหลดแบบ lazy) ===
+        let _tessReady = null, _ocrFile = null;
+        function ensureTesseract() {
+            if (window.Tesseract) return Promise.resolve(window.Tesseract);
+            if (_tessReady) return _tessReady;
+            _tessReady = new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+                s.onload = () => resolve(window.Tesseract);
+                s.onerror = () => { _tessReady = null; reject(new Error('โหลดตัวอ่านภาพไม่สำเร็จ (ตรวจการเชื่อมต่ออินเทอร์เน็ต)')); };
+                document.head.appendChild(s);
+            });
+            return _tessReady;
+        }
+
+        function openOcrModal() {
+            _ocrFile = null;
+            document.getElementById('ocr-file').value = '';
+            document.getElementById('ocr-preview').classList.add('hidden');
+            document.getElementById('ocr-result').classList.add('hidden');
+            document.getElementById('ocr-status').innerHTML = '';
+            document.getElementById('ocr-apply-btn').disabled = true;
+            document.getElementById('ocr-amount').value = '';
+            document.getElementById('ocr-desc').value = '';
+            document.getElementById('ocr-date').value = '';
+            document.getElementById('ocr-rawtext').value = '';
+            document.getElementById('ocr-amount-chips').innerHTML = '';
+            document.getElementById('ocr-modal').classList.remove('hidden');
+        }
+        function closeOcrModal() { document.getElementById('ocr-modal').classList.add('hidden'); }
+
+        function handleOcrDrop(e) {
+            e.preventDefault();
+            const dz = document.getElementById('ocr-drop'); if (dz) dz.classList.remove('ring-2', 'ring-mop-primary', 'bg-mop-lighter/40');
+            const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+            if (f) processOcrImage(f);
+        }
+        function handleOcrPick(e) { const f = e.target.files && e.target.files[0]; if (f) processOcrImage(f); }
+
+        async function processOcrImage(file) {
+            if (!/^image\//.test(file.type) && !/\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name || '')) { showToast('⚠️ รองรับเฉพาะไฟล์รูปภาพ', 'error'); return; }
+            _ocrFile = file;
+            const status = document.getElementById('ocr-status');
+            const prev = document.getElementById('ocr-preview');
+            try { prev.src = URL.createObjectURL(file); prev.classList.remove('hidden'); } catch (e) {}
+            status.className = 'text-[11px] text-slate-500 mt-2 leading-relaxed';
+            status.innerHTML = '⏳ กำลังโหลดตัวอ่านภาพและประมวลผล... (ครั้งแรกอาจใช้เวลาสักครู่)';
+            try {
+                const T = await ensureTesseract();
+                const { data } = await T.recognize(file, 'tha+eng', {
+                    workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',
+                    corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1',
+                    langPath: 'https://tessdata.projectnaptha.com/4.0.0',
+                    logger: m => { if (m.status === 'recognizing text') status.innerHTML = '🔍 กำลังอ่านข้อความ... ' + Math.round((m.progress || 0) * 100) + '%'; }
+                });
+                const text = (data && data.text) || '';
+                document.getElementById('ocr-rawtext').value = text;
+                const amounts = parseOcrAmounts(text);
+                const chips = document.getElementById('ocr-amount-chips');
+                chips.innerHTML = amounts.length ? amounts.map(v => `<button type="button" onclick="selectOcrAmount(${v})" class="px-2.5 py-1 rounded-lg bg-white border border-mop-light text-mop-dark text-xs font-bold hover:bg-mop-lighter/50">${v.toLocaleString()}</button>`).join('') : '<span class="text-[11px] text-slate-400">— ไม่พบตัวเลขยอดเงินชัดเจน กรอกเอง —</span>';
+                const guess = guessOcrTotal(text, amounts);
+                if (guess != null) document.getElementById('ocr-amount').value = guess;
+                const d = parseOcrDate(text); if (d) document.getElementById('ocr-date').value = d;
+                const desc = guessOcrDesc(text); if (desc) document.getElementById('ocr-desc').value = desc;
+                document.getElementById('ocr-result').classList.remove('hidden');
+                document.getElementById('ocr-apply-btn').disabled = false;
+                status.className = 'text-[11px] text-mop-dark mt-2 leading-relaxed';
+                status.innerHTML = '✅ อ่านข้อความเสร็จ — ตรวจ/แก้ยอดเงิน วันที่ รายละเอียด แล้วกด "เติมลงฟอร์ม + แนบสลิป"';
+            } catch (err) {
+                status.className = 'text-[11px] text-red-500 mt-2 leading-relaxed';
+                status.innerHTML = '❌ ' + ((err && err.message) ? err.message : 'อ่านภาพไม่สำเร็จ');
+            }
+        }
+
+        function selectOcrAmount(v) { document.getElementById('ocr-amount').value = v; }
+
+        // ดึงเฉพาะตัวเลขที่ดูเป็นยอดเงิน (มี ฿/บาท นำหน้า หรือมีคอมมาหลักพัน หรือมีทศนิยม 2 ตำแหน่ง)
+        function parseOcrAmounts(text) {
+            const set = new Set(); const out = [];
+            const re = /(?:฿|บาท|THB|B)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)|(\b[0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]{2})?\b)|(\b[0-9]+\.[0-9]{2}\b)/g;
+            let m;
+            while ((m = re.exec(text))) {
+                const raw = m[1] || m[2] || m[3]; if (!raw) continue;
+                const v = parseFloat(raw.replace(/,/g, ''));
+                if (v >= 1 && v <= 100000000) { const k = v.toFixed(2); if (!set.has(k)) { set.add(k); out.push(v); } }
+            }
+            return out.sort((a, b) => a - b);
+        }
+
+        // เดายอดรวม: หาบรรทัดที่มีคำว่ารวม/ยอดชำระ/total แล้วเอายอดในบรรทัดนั้น ไม่งั้นใช้ยอดมากสุด
+        function guessOcrTotal(text, amounts) {
+            const lines = text.split(/\r?\n/);
+            const kw = /(รวมคำสั่ง|ยอดชำระ|ยอดรวม|รวมทั้งสิ้น|สุทธิ|total|amount\s*paid|grand\s*total)/i;
+            for (const ln of lines) {
+                if (kw.test(ln)) {
+                    const nums = (ln.match(/[0-9][0-9,]*(?:\.[0-9]{2})?/g) || []).map(s => parseFloat(s.replace(/,/g, ''))).filter(v => v >= 1);
+                    if (nums.length) return nums[nums.length - 1];
+                }
+            }
+            return amounts && amounts.length ? amounts[amounts.length - 1] : null;
+        }
+
+        // วันที่: DD-MM-YYYY / DD/MM/YYYY (รองรับ พ.ศ. > 2500 แปลงเป็น ค.ศ.)
+        function parseOcrDate(text) {
+            const m = text.match(/(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/);
+            if (!m) return '';
+            let d = +m[1], mo = +m[2], y = +m[3];
+            if (d < 1 || d > 31 || mo < 1 || mo > 12) return '';
+            if (y < 100) y += 2000;
+            if (y > 2500) y -= 543; // พ.ศ. -> ค.ศ.
+            return y + '-' + String(mo).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+        }
+
+        // เดารายละเอียด: บรรทัดที่ยาวพอ ไม่ใช่ที่อยู่/เบอร์/ยอดเงิน/วันที่
+        function guessOcrDesc(text) {
+            const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+            const skip = /(รายละเอียด|ที่อยู่|จัดส่ง|พัสดุ|โทร|\+?\d{2,}[\d\s-]{6,}|฿|บาท|รวม|ยอด|ส่วนลด|ค่าจัดส่ง|โค้ด|บริการหลัง|\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4})/i;
+            for (const ln of lines) {
+                if (ln.length >= 6 && ln.length <= 60 && !skip.test(ln) && /[ก-๙A-Za-z]/.test(ln)) return ln.replace(/\s+/g, ' ').slice(0, 50);
+            }
+            return '';
+        }
+
+        function applyOcrToLedger() {
+            const amount = parseFloat(document.getElementById('ocr-amount').value) || 0;
+            const type = document.getElementById('ocr-type').value || 'expense';
+            const date = document.getElementById('ocr-date').value || '';
+            const desc = (document.getElementById('ocr-desc').value || '').trim();
+            if (!(amount > 0)) { showToast('⚠️ กรุณาระบุจำนวนเงิน', 'error'); return; }
+            // ให้แน่ใจว่าอยู่แท็บบัญชี
+            if (document.getElementById('page-ledger') && document.getElementById('page-ledger').classList.contains('hidden')) switchTab('ledger');
+            const set = (id, val) => { const el = document.getElementById(id); if (el != null && val !== undefined) el.value = val; };
+            set('ledger-type', type);
+            set('ledger-amount', amount);
+            set('ledger-desc', desc);
+            if (date) set('ledger-entry-date', date);
+            if (typeof updateIssueDocButton === 'function') { try { updateIssueDocButton(); } catch (e) {} }
+            // แนบภาพเป็นสลิปของรายการ
+            if (_ocrFile) setLedgerReceiptFromFile(_ocrFile);
+            closeOcrModal();
+            const form = document.getElementById('ledger-entry-dropzone');
+            if (form) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            showToast('✅ เติมข้อมูลจากภาพลงฟอร์มแล้ว — ตรวจสอบและกด "บันทึกรายการ"', 'success');
         }
 
         function removeLedgerReceipt() {
