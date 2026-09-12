@@ -1095,6 +1095,15 @@
                 <input type="text" id="import-income-desc" list="income-channel-list" class="input-field !py-2 bg-slate-50 text-sm" value="ยอดขายรายวัน (ออมสิน)" placeholder="เลือกช่องทาง เช่น ไทยช่วยไทย, G-Wallet...">
                 <datalist id="income-channel-list"></datalist>
             </div>
+            <div class="mb-2 p-3 rounded-xl border-2 border-dashed border-mop-primary/40 bg-mop-lighter/20">
+                <label class="text-[11px] font-bold text-mop-dark uppercase mb-1.5 flex items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg> อ่านจากไฟล์ PDF statement ธนาคาร (แยกเงินเข้ารายวันอัตโนมัติ)</label>
+                <div class="flex flex-col sm:flex-row gap-2 items-stretch">
+                    <input type="file" id="import-pdf-file" accept="application/pdf" class="text-xs flex-1 bg-white rounded-lg border border-slate-200 p-1.5 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:bg-mop-lighter/60 file:text-mop-dark file:font-bold">
+                    <input type="password" id="import-pdf-pass" placeholder="รหัสไฟล์ (ถ้ามี)" class="input-field !py-2 text-sm sm:!w-36">
+                    <button type="button" onclick="parseBankPdf()" id="import-pdf-btn" class="bg-mop-dark hover:bg-mop-primary text-white px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-colors">แยกรายวัน</button>
+                </div>
+                <div id="import-pdf-status" class="text-[11px] text-slate-500 mt-1.5 leading-relaxed"></div>
+            </div>
             <textarea id="import-income-text" rows="9" class="input-field !py-2 bg-slate-50 text-sm font-mono w-full mb-3" placeholder="24/03/2569, 1660&#10;25/03/2569, 1420&#10;..."></textarea>
             <div class="grid grid-cols-2 gap-3 shrink-0">
                 <button onclick="closeImportIncome()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 py-3 rounded-xl font-bold text-sm transition-colors">ยกเลิก</button>
@@ -3566,9 +3575,128 @@
             const all = [...new Set([...presets, ...used])].filter(Boolean);
             const dl = document.getElementById('income-channel-list');
             if (dl) dl.innerHTML = all.map(v => `<option value="${String(v).replace(/"/g, '&quot;')}">`).join('');
+            const pf = document.getElementById('import-pdf-file'); if (pf) pf.value = '';
+            const pp = document.getElementById('import-pdf-pass'); if (pp) pp.value = '';
+            const ps = document.getElementById('import-pdf-status'); if (ps) ps.innerHTML = '';
             document.getElementById('import-income-modal').classList.remove('hidden');
         }
         function closeImportIncome() { document.getElementById('import-income-modal').classList.add('hidden'); }
+
+        // === อ่าน PDF statement ธนาคาร → แยกเงินเข้ารายวัน (pdf.js โหลดแบบ lazy) ===
+        let _pdfjsReady = null;
+        function ensurePdfJs() {
+            if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+            if (_pdfjsReady) return _pdfjsReady;
+            _pdfjsReady = new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+                s.onload = () => {
+                    try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; resolve(window.pdfjsLib); }
+                    catch (e) { reject(e); }
+                };
+                s.onerror = () => { _pdfjsReady = null; reject(new Error('โหลดตัวอ่าน PDF ไม่สำเร็จ (ตรวจการเชื่อมต่ออินเทอร์เน็ต)')); };
+                document.head.appendChild(s);
+            });
+            return _pdfjsReady;
+        }
+
+        // อ่านข้อความจาก PDF แล้วประกอบกลับเป็นบรรทัดตามพิกัดแนวตั้ง (Y) ของแต่ละหน้า
+        async function extractPdfLines(file, password) {
+            const pdfjsLib = await ensurePdfJs();
+            const buf = await file.arrayBuffer();
+            const doc = await pdfjsLib.getDocument({ data: buf, password: password || undefined }).promise;
+            const allLines = [];
+            for (let p = 1; p <= doc.numPages; p++) {
+                const page = await doc.getPage(p);
+                const tc = await page.getTextContent();
+                const rows = {};
+                tc.items.forEach(it => {
+                    if (!it.str || !it.str.trim()) return;
+                    const y = Math.round(it.transform[5]);
+                    (rows[y] = rows[y] || []).push({ x: it.transform[4], s: it.str });
+                });
+                Object.keys(rows).map(Number).sort((a, b) => b - a).forEach(y => {
+                    const line = rows[y].sort((a, b) => a.x - b.x).map(o => o.s).join(' ').replace(/\s+/g, ' ').trim();
+                    if (line) allLines.push(line);
+                });
+            }
+            return allLines;
+        }
+
+        // แยกเงินเข้ารายวันจาก statement โดยกระทบยอดจากยอดคงเหลือ (นับเฉพาะเงินเข้า)
+        function parseStatementDeposits(lines) {
+            const num = t => parseFloat(String(t).replace(/,/g, ''));
+            const moneyRe = /-?\d{1,3}(?:,\d{3})*\.\d{2}/g;
+            const dateRe = /(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/;
+            const byDay = {}; let deposits = 0, withdrawals = 0, txCount = 0, opening = null, closing = null, noOpening = false;
+            const flags = [];
+            let prevBal = null;
+            // 1) หายอดยกมา (ตั้งต้น)
+            for (const line of lines) {
+                if (/ยกมา|brought\s*forward|balance\s*forward/i.test(line)) {
+                    const m = line.match(moneyRe);
+                    if (m && m.length) { prevBal = num(m[m.length - 1]); opening = prevBal; break; }
+                }
+            }
+            // 2) เดินรายการทีละบรรทัดที่มีวันที่
+            for (const line of lines) {
+                const dm = line.match(dateRe);
+                if (!dm) continue;
+                const dd = +dm[1], mo = +dm[2];
+                if (dd < 1 || dd > 31 || mo < 1 || mo > 12) continue; // ไม่ใช่วันที่จริง
+                const monies = (line.match(moneyRe) || []).map(num);
+                if (!monies.length) continue;
+                const bal = monies[monies.length - 1]; // ยอดคงเหลือ = ตัวเลขเงินขวาสุด
+                if (prevBal === null) { prevBal = bal; opening = bal; noOpening = true; continue; } // ไม่มียอดยกมา → ใช้บรรทัดแรกเป็นตั้งต้น
+                const delta = Math.round((bal - prevBal) * 100) / 100;
+                prevBal = bal; closing = bal; txCount++;
+                let y = +dm[3]; if (y < 100) y += 2500; // 69 -> 2569 (พ.ศ.)
+                const key = String(dd).padStart(2, '0') + '/' + String(mo).padStart(2, '0') + '/' + y;
+                if (delta > 0) { byDay[key] = Math.round(((byDay[key] || 0) + delta) * 100) / 100; deposits = Math.round((deposits + delta) * 100) / 100; if (delta >= 20000) flags.push(key + ' = ' + delta.toLocaleString()); }
+                else if (delta < 0) withdrawals = Math.round((withdrawals - delta) * 100) / 100;
+            }
+            return { byDay, deposits, withdrawals, opening, closing, txCount, flags, noOpening };
+        }
+
+        async function parseBankPdf() {
+            const fileEl = document.getElementById('import-pdf-file');
+            const file = fileEl && fileEl.files && fileEl.files[0];
+            const status = document.getElementById('import-pdf-status');
+            const btn = document.getElementById('import-pdf-btn');
+            const setStatus = (t, cls) => { if (status) { status.innerHTML = t; status.className = 'text-[11px] mt-1.5 leading-relaxed ' + (cls || 'text-slate-500'); } };
+            if (!file) { showToast('⚠️ เลือกไฟล์ PDF ก่อน', 'error'); return; }
+            const pass = (document.getElementById('import-pdf-pass').value || '').trim();
+            const oldLabel = btn ? btn.textContent : '';
+            if (btn) { btn.disabled = true; btn.textContent = 'กำลังอ่าน...'; }
+            setStatus('⏳ กำลังปลดล็อกและอ่านไฟล์...');
+            try {
+                const lines = await extractPdfLines(file, pass);
+                if (!lines.length) throw new Error('อ่านข้อความในไฟล์ไม่ได้ (อาจเป็นไฟล์สแกนเป็นรูปภาพ)');
+                const r = parseStatementDeposits(lines);
+                const days = Object.keys(r.byDay);
+                if (!days.length) throw new Error('ไม่พบรายการเงินเข้าในไฟล์ (ตรวจว่าเป็น statement ที่มียอดคงเหลือ)');
+                const toTs = k => { const [d, m, y] = k.split('/'); return new Date(+y - 543, +m - 1, +d).getTime(); };
+                days.sort((a, b) => toTs(a) - toTs(b));
+                document.getElementById('import-income-text').value = days.map(k => k + ', ' + r.byDay[k]).join('\n');
+                let recon = '';
+                if (r.opening !== null && r.closing !== null) {
+                    const expect = Math.round((r.opening + r.deposits - r.withdrawals) * 100) / 100;
+                    recon = (Math.abs(expect - r.closing) < 1) ? ' · กระทบยอด ✅' : ` · กระทบยอด ⚠️ (คำนวณ ${expect.toLocaleString()} ≠ คงเหลือ ${r.closing.toLocaleString()})`;
+                }
+                const notes = [];
+                if (r.noOpening) notes.push('ไม่พบยอดยกมา — รายการแรกถูกใช้เป็นยอดตั้งต้น (อาจตกรายการแรก โปรดตรวจ)');
+                if (r.flags.length) notes.push('ยอดเข้าก้อนใหญ่ (≥20,000): ' + r.flags.join(', ') + ' — ตรวจว่าเป็นยอดขายหรือไม่');
+                const noteTxt = notes.length ? '<br>⚠️ ' + notes.join('<br>⚠️ ') : '';
+                setStatus(`✅ แยกได้ ${days.length} วัน · รวมรายรับ <b>${r.deposits.toLocaleString(undefined, { minimumFractionDigits: 2 })}</b> บาท (${r.txCount} รายการ)${recon}<br>เติมลงช่องด้านล่างแล้ว — ตรวจ/แก้ไขได้ก่อนกด "นำเข้าลงบัญชี"${noteTxt}`, 'text-mop-dark');
+                showToast('✅ แยกรายวันจาก PDF สำเร็จ ' + days.length + ' วัน', 'success');
+            } catch (e) {
+                let msg = (e && e.message) ? e.message : 'อ่านไฟล์ไม่สำเร็จ';
+                if ((e && e.name === 'PasswordException') || /password/i.test(msg)) msg = 'รหัสผ่านไฟล์ไม่ถูกต้อง หรือไฟล์นี้ต้องใส่รหัสผ่าน';
+                setStatus('❌ ' + msg, 'text-red-500');
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = oldLabel || 'แยกรายวัน'; }
+            }
+        }
 
         function parseImportDate(s) {
             s = String(s || '').trim();
