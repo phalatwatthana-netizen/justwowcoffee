@@ -3676,6 +3676,32 @@
             return { byDay, deposits, withdrawals, opening, closing, txCount, flags, noOpening };
         }
 
+        // แยกรายงานการขาย "ถุงเงิน" (รายการต่อรายการ) → รวมรายวันแยกช่องทาง (ไทยช่วยไทย/QR)
+        function parseThungNgoen(lines) {
+            const monthMap = { 'ม.ค.':1,'ก.พ.':2,'มี.ค.':3,'เม.ย.':4,'พ.ค.':5,'มิ.ย.':6,'ก.ค.':7,'ส.ค.':8,'ก.ย.':9,'ต.ค.':10,'พ.ย.':11,'ธ.ค.':12 };
+            const monthAlt = 'ม\\.ค\\.|ก\\.พ\\.|มี\\.ค\\.|เม\\.ย\\.|พ\\.ค\\.|มิ\\.ย\\.|ก\\.ค\\.|ส\\.ค\\.|ก\\.ย\\.|ต\\.ค\\.|พ\\.ย\\.|ธ\\.ค\\.';
+            const dateRe = new RegExp('^\\s*(\\d{1,2})\\s*(' + monthAlt + ')\\s*(\\d{2})\\s*-\\s*\\d{1,2}:\\d{2}:\\d{2}');
+            const amtRe = /([\d,]+\.\d{2})\s*(รับเงิน|คืนเงิน)/;
+            const byDayCh = {}; const byChannel = {}; let total = 0, count = 0, refunds = 0;
+            lines.forEach(line => {
+                const dm = line.match(dateRe); if (!dm) return;
+                const am = line.match(amtRe); if (!am) return;
+                if (am[2] === 'คืนเงิน') { refunds++; return; }
+                const amt = parseFloat(am[1].replace(/,/g, '')); if (!(amt > 0)) return;
+                let ch = 'อื่นๆ';
+                if (line.indexOf('ไทยช่วยไทย') >= 0) ch = 'ไทยช่วยไทย';
+                else if (/QR/i.test(line)) ch = 'QR';
+                else if (/G-?Wallet/i.test(line)) ch = 'G-Wallet';
+                const y = +dm[3] + 2500; // 69 -> 2569
+                const key = String(+dm[1]).padStart(2, '0') + '/' + String(monthMap[dm[2]]).padStart(2, '0') + '/' + y;
+                const k2 = key + '||' + ch;
+                byDayCh[k2] = Math.round(((byDayCh[k2] || 0) + amt) * 100) / 100;
+                byChannel[ch] = Math.round(((byChannel[ch] || 0) + amt) * 100) / 100;
+                total = Math.round((total + amt) * 100) / 100; count++;
+            });
+            return { byDayCh, byChannel, total, count, refunds };
+        }
+
         async function parseBankPdf() {
             const fileEl = document.getElementById('import-pdf-file');
             const file = (fileEl && fileEl.files && fileEl.files[0]) || _droppedPdfFile;
@@ -3690,10 +3716,30 @@
             try {
                 const lines = await extractPdfLines(file, pass);
                 if (!lines.length) throw new Error('อ่านข้อความในไฟล์ไม่ได้ (อาจเป็นไฟล์สแกนเป็นรูปภาพ)');
+                const toTs = k => { const [d, m, y] = k.split('/'); return new Date(+y - 543, +m - 1, +d).getTime(); };
+
+                // ตรวจจับชนิดไฟล์: รายงานถุงเงิน (รายการต่อรายการ) หรือ statement ธนาคาร (มียอดคงเหลือ)
+                const tn = parseThungNgoen(lines);
+                if (tn.count > 0) {
+                    // === ถุงเงิน: รวมรายวันแยกช่องทาง ===
+                    const keys = Object.keys(tn.byDayCh);
+                    keys.sort((a, b) => { const [da, ca] = a.split('||'), [db, cb] = b.split('||'); return (toTs(da) - toTs(db)) || ca.localeCompare(cb); });
+                    document.getElementById('import-income-text').value = keys.map(k => {
+                        const [day, ch] = k.split('||');
+                        const desc = ch === 'อื่นๆ' ? 'ยอดขายถุงเงิน' : 'ยอดขายถุงเงิน (' + ch + ')';
+                        return day + ', ' + tn.byDayCh[k] + ', ' + desc;
+                    }).join('\n');
+                    const chTxt = Object.keys(tn.byChannel).map(c => c + ' ' + tn.byChannel[c].toLocaleString(undefined, { minimumFractionDigits: 2 })).join(' · ');
+                    const refundTxt = tn.refunds ? ` · ข้ามรายการคืนเงิน ${tn.refunds}` : '';
+                    setStatus(`✅ ถุงเงิน: ${tn.count} รายการ รวม <b>${tn.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</b> บาท${refundTxt}<br>ช่องทาง: ${chTxt}<br>เติมลงช่องด้านล่างแล้ว (ระบุช่องทางในแต่ละบรรทัดให้อัตโนมัติ) — ตรวจ/แก้ไขได้ก่อนกด "นำเข้าลงบัญชี"`, 'text-mop-dark');
+                    showToast('✅ แยกยอดถุงเงินสำเร็จ ' + tn.count + ' รายการ', 'success');
+                    return;
+                }
+
+                // === statement ธนาคาร: กระทบยอดจากยอดคงเหลือ ===
                 const r = parseStatementDeposits(lines);
                 const days = Object.keys(r.byDay);
-                if (!days.length) throw new Error('ไม่พบรายการเงินเข้าในไฟล์ (ตรวจว่าเป็น statement ที่มียอดคงเหลือ)');
-                const toTs = k => { const [d, m, y] = k.split('/'); return new Date(+y - 543, +m - 1, +d).getTime(); };
+                if (!days.length) throw new Error('ไม่พบรายการเงินเข้าในไฟล์ (รองรับ statement ธนาคารที่มียอดคงเหลือ หรือรายงานการขายถุงเงิน)');
                 days.sort((a, b) => toTs(a) - toTs(b));
                 document.getElementById('import-income-text').value = days.map(k => k + ', ' + r.byDay[k]).join('\n');
                 let recon = '';
