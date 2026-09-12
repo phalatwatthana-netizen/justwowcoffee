@@ -1095,8 +1095,8 @@
                 <input type="text" id="import-income-desc" list="income-channel-list" class="input-field !py-2 bg-slate-50 text-sm" value="ยอดขายรายวัน (ออมสิน)" placeholder="เลือกช่องทาง เช่น ไทยช่วยไทย, G-Wallet...">
                 <datalist id="income-channel-list"></datalist>
             </div>
-            <div class="mb-2 p-3 rounded-xl border-2 border-dashed border-mop-primary/40 bg-mop-lighter/20">
-                <label class="text-[11px] font-bold text-mop-dark uppercase mb-1.5 flex items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg> อ่านจากไฟล์ PDF statement ธนาคาร (แยกเงินเข้ารายวันอัตโนมัติ)</label>
+            <div id="import-pdf-drop" ondragover="event.preventDefault(); this.classList.add('ring-2','ring-mop-primary','bg-mop-lighter/50')" ondragleave="this.classList.remove('ring-2','ring-mop-primary','bg-mop-lighter/50')" ondrop="handlePdfDrop(event)" class="mb-2 p-3 rounded-xl border-2 border-dashed border-mop-primary/40 bg-mop-lighter/20 transition-all">
+                <label class="text-[11px] font-bold text-mop-dark uppercase mb-1.5 flex items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg> อ่านจากไฟล์ PDF statement ธนาคาร — ลากไฟล์มาวาง หรือเลือกไฟล์</label>
                 <div class="flex flex-col sm:flex-row gap-2 items-stretch">
                     <input type="file" id="import-pdf-file" accept="application/pdf" class="text-xs flex-1 bg-white rounded-lg border border-slate-200 p-1.5 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:bg-mop-lighter/60 file:text-mop-dark file:font-bold">
                     <input type="password" id="import-pdf-pass" placeholder="รหัสไฟล์ (ถ้ามี)" class="input-field !py-2 text-sm sm:!w-36">
@@ -3577,6 +3577,7 @@
             if (dl) dl.innerHTML = all.map(v => `<option value="${String(v).replace(/"/g, '&quot;')}">`).join('');
             const pf = document.getElementById('import-pdf-file'); if (pf) pf.value = '';
             const pp = document.getElementById('import-pdf-pass'); if (pp) pp.value = '';
+            _droppedPdfFile = null;
             const ps = document.getElementById('import-pdf-status'); if (ps) ps.innerHTML = '';
             document.getElementById('import-income-modal').classList.remove('hidden');
         }
@@ -3584,6 +3585,23 @@
 
         // === อ่าน PDF statement ธนาคาร → แยกเงินเข้ารายวัน (pdf.js โหลดแบบ lazy) ===
         let _pdfjsReady = null;
+        let _droppedPdfFile = null;
+
+        // ลากไฟล์ PDF จากข้างนอกมาวางบนกล่องอัปโหลด
+        function handlePdfDrop(e) {
+            e.preventDefault();
+            const dz = document.getElementById('import-pdf-drop');
+            if (dz) dz.classList.remove('ring-2', 'ring-mop-primary', 'bg-mop-lighter/50');
+            const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+            if (!f) return;
+            if (f.type !== 'application/pdf' && !/\.pdf$/i.test(f.name || '')) { showToast('⚠️ รองรับเฉพาะไฟล์ PDF', 'error'); return; }
+            _droppedPdfFile = f;
+            const input = document.getElementById('import-pdf-file');
+            try { input.files = e.dataTransfer.files; } catch (_) {}
+            const status = document.getElementById('import-pdf-status');
+            if (status) { status.className = 'text-[11px] mt-1.5 leading-relaxed text-slate-500'; status.innerHTML = '📎 เลือกไฟล์: <b>' + String(f.name || 'ไฟล์.pdf').replace(/</g, '&lt;') + '</b> — ใส่รหัส (ถ้ามี) แล้วกด "แยกรายวัน"'; }
+        }
+
         function ensurePdfJs() {
             if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
             if (_pdfjsReady) return _pdfjsReady;
@@ -3660,7 +3678,7 @@
 
         async function parseBankPdf() {
             const fileEl = document.getElementById('import-pdf-file');
-            const file = fileEl && fileEl.files && fileEl.files[0];
+            const file = (fileEl && fileEl.files && fileEl.files[0]) || _droppedPdfFile;
             const status = document.getElementById('import-pdf-status');
             const btn = document.getElementById('import-pdf-btn');
             const setStatus = (t, cls) => { if (status) { status.innerHTML = t; status.className = 'text-[11px] mt-1.5 leading-relaxed ' + (cls || 'text-slate-500'); } };
