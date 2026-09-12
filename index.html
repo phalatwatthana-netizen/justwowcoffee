@@ -557,7 +557,8 @@
                                         <button type="button" id="ledger-receipt-remove" onclick="removeLedgerReceipt()" class="text-red-500 text-[11px] font-bold hidden hover:underline ml-1">ลบรูป</button>
                                     </div>
                                 </div>
-                                <div class="sm:col-span-3 flex flex-col justify-start gap-2">
+                                <div id="ledger-entry-dropzone" ondragover="event.preventDefault(); this.classList.add('ring-2','ring-mop-primary','bg-mop-lighter/40')" ondragleave="this.classList.remove('ring-2','ring-mop-primary','bg-mop-lighter/40')" ondrop="handleLedgerDrop(event)" class="sm:col-span-3 flex flex-col justify-start gap-2 border-2 border-dashed border-mop-primary/40 rounded-2xl p-2.5 bg-mop-lighter/10 transition-all">
+                                    <div id="ledger-drop-hint" class="text-[10px] text-mop-dark/70 font-semibold text-center leading-tight py-0.5"><svg class="w-3.5 h-3.5 shrink-0 inline -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg> ลากสลิป/ไฟล์มาวางที่นี่เพื่อแนบเข้ารายการ</div>
                                     <button onclick="addLedgerEntry()" class="w-full btn-premium py-3 font-bold h-[46px] mt-1 shadow-md">บันทึกรายการ</button>
                                     <button onclick="openPayslipFromLedger('wage')" class="w-full bg-white border border-amber-400 text-amber-700 font-bold py-2 rounded-xl text-[11px] hover:bg-amber-50 transition-colors flex items-center justify-center gap-1.5 shadow-sm"><svg class="w-3.5 h-3.5 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg> ออกสลิปจ่ายค่าจ้าง</button>
                                     <button onclick="openPayslipFromLedger('utility')" class="w-full bg-white border border-sky-400 text-sky-700 font-bold py-2 rounded-xl text-[11px] hover:bg-sky-50 transition-colors flex items-center justify-center gap-1.5 shadow-sm"><svg class="w-3.5 h-3.5 text-sky-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> ออกสลิปค่าสาธารณูปโภค</button>
@@ -2955,6 +2956,11 @@
 
         function handleLedgerReceiptUpload(event) {
             const file = event.target.files[0];
+            setLedgerReceiptFromFile(file);
+        }
+
+        // แปลงไฟล์ (รูป/PDF) เป็นสลิปแนบของรายการที่กำลังบันทึก — ใช้ร่วมกันทั้งปุ่มเลือกไฟล์และการลากวาง
+        function setLedgerReceiptFromFile(file) {
             if (!file) return;
             const reader = new FileReader();
             reader.onload = function(e) {
@@ -2963,6 +2969,7 @@
                     const preview = document.getElementById('ledger-receipt-preview');
                     preview.style.backgroundImage = `url('${PDF_ICON_URL}')`;
                     preview.classList.remove('hidden'); document.getElementById('ledger-receipt-remove').classList.remove('hidden');
+                    markLedgerDropAttached(file.name || 'ไฟล์ PDF');
                 } else {
                     const img = new Image();
                     img.onload = function() {
@@ -2970,15 +2977,38 @@
                         if (img.width > MAX_WIDTH) scaleSize = MAX_WIDTH / img.width;
                         canvas.width = img.width * scaleSize; canvas.height = img.height * scaleSize;
                         const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        currentLedgerReceipt = canvas.toDataURL('image/jpeg', 0.7); 
+                        currentLedgerReceipt = canvas.toDataURL('image/jpeg', 0.7);
                         const preview = document.getElementById('ledger-receipt-preview');
                         preview.style.backgroundImage = `url(${currentLedgerReceipt})`;
                         preview.classList.remove('hidden'); document.getElementById('ledger-receipt-remove').classList.remove('hidden');
+                        markLedgerDropAttached(file.name || 'รูปภาพ');
                     };
                     img.src = e.target.result;
                 }
             };
             reader.readAsDataURL(file);
+        }
+
+        // อัปเดตข้อความในกล่องลากวางเมื่อแนบไฟล์แล้ว
+        function markLedgerDropAttached(name) {
+            const hint = document.getElementById('ledger-drop-hint');
+            if (hint) { hint.innerHTML = '✅ แนบไฟล์แล้ว: ' + String(name).replace(/</g, '&lt;').slice(0, 28); hint.className = 'text-[10px] text-mop-primary font-bold text-center leading-tight py-0.5'; }
+        }
+        function resetLedgerDropHint() {
+            const hint = document.getElementById('ledger-drop-hint');
+            if (hint) { hint.innerHTML = '<svg class="w-3.5 h-3.5 shrink-0 inline -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg> ลากสลิป/ไฟล์มาวางที่นี่เพื่อแนบเข้ารายการ'; hint.className = 'text-[10px] text-mop-dark/70 font-semibold text-center leading-tight py-0.5'; }
+        }
+
+        // ลากไฟล์มาวางบนกล่องเมนู → แนบเข้ารายการที่กำลังบันทึก
+        function handleLedgerDrop(e) {
+            e.preventDefault();
+            const dz = document.getElementById('ledger-entry-dropzone');
+            if (dz) dz.classList.remove('ring-2', 'ring-mop-primary', 'bg-mop-lighter/40');
+            const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+            if (!f) return;
+            if (!/^image\//.test(f.type) && f.type !== 'application/pdf' && !/\.(png|jpe?g|webp|gif|pdf)$/i.test(f.name || '')) { showToast('⚠️ รองรับเฉพาะรูปภาพหรือ PDF', 'error'); return; }
+            setLedgerReceiptFromFile(f);
+            showToast('📎 แนบไฟล์เข้ารายการที่กำลังบันทึกแล้ว', 'success');
         }
 
         function removeLedgerReceipt() {
@@ -2987,6 +3017,7 @@
             document.getElementById('ledger-input-receipt-camera').value = '';
             document.getElementById('ledger-receipt-preview').classList.add('hidden');
             document.getElementById('ledger-receipt-remove').classList.add('hidden');
+            resetLedgerDropHint();
         }
 
         function viewFullReceipt(bgUrl) {
