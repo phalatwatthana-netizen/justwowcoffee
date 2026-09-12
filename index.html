@@ -146,7 +146,7 @@
 
     <!-- Floating Header -->
     <header class="pt-6 px-4 sticky top-0 z-20">
-        <div class="max-w-5xl mx-auto glass-card !rounded-[24px] py-4 px-6 flex flex-col md:flex-row items-center justify-between gap-4 border-b-0">
+        <div class="max-w-[1800px] mx-auto glass-card !rounded-[24px] py-4 px-6 flex flex-col md:flex-row items-center justify-between gap-4 border-b-0">
             <div class="flex items-center gap-3">
                 <img id="home-logo" src="" class="hidden h-24 sm:h-28 w-auto max-w-[280px] object-contain rounded-xl shadow-sm border border-slate-100 bg-white p-1 shrink-0">
                 <div id="home-default-icons" class="flex items-center gap-1.5 sm:gap-2 shrink-0">
@@ -181,7 +181,7 @@
     </header>
 
     <!-- Navigation Tabs -->
-    <nav class="max-w-5xl mx-auto px-4 mt-8 flex justify-start md:justify-center gap-2 overflow-x-auto hide-scroll pb-2 no-print">
+    <nav class="max-w-[1800px] mx-auto px-4 mt-8 flex justify-start md:justify-center gap-2 overflow-x-auto hide-scroll pb-2 no-print">
         <div class="flex p-1.5 bg-white/50 backdrop-blur-md rounded-[20px] border border-white shadow-sm">
             <button id="tab-home" onclick="switchTab('home')" class="px-6 py-2.5 rounded-[14px] font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap bg-white text-mop-dark shadow-sm ring-1 ring-black/5">
                 <svg class="w-4 h-4 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
@@ -206,7 +206,7 @@
         </div>
     </nav>
 
-    <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-8">
+    <main class="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-8">
         
         <!-- PAGE 0: HOME (BENTO DASHBOARD) -->
         <div id="page-home" class="space-y-6 animate-fade-in block">
@@ -3503,20 +3503,20 @@
                     if (item.type === 'income') monthlyData[day].inc += amt; else monthlyData[day].exp += amt;
                 }
             });
-            for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div class="bg-white/40 min-h-[80px]"></div>`;
+            for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div class="bg-white/40 min-h-[104px] sm:min-h-[120px]"></div>`;
             for (let i = 1; i <= daysInMonth; i++) {
                 const data = monthlyData[i], isSunday = new Date(year, month, i).getDay() === 0;
                 let content = `<div class="text-xs font-bold mb-1.5 ${isSunday ? 'text-red-500' : 'text-mop-dark'}">${i}</div>`;
                 if (data) {
-                    if (data.inc > 0) content += `<div class="text-[10px] text-mop-primary font-bold truncate bg-mop-lighter/50 rounded px-1.5 py-0.5 mb-1">+${data.inc.toLocaleString('en-US', {minimumFractionDigits: 0})}</div>`;
-                    if (data.exp > 0) content += `<div class="text-[10px] text-red-600 font-bold truncate bg-red-100 rounded px-1.5 py-0.5">-${data.exp.toLocaleString('en-US', {minimumFractionDigits: 0})}</div>`;
+                    if (data.inc > 0) content += `<div class="text-[10px] sm:text-[12px] text-mop-primary font-bold leading-tight bg-mop-lighter/50 rounded px-1.5 py-0.5 mb-1 text-center tabular-nums">+${data.inc.toLocaleString('en-US', {minimumFractionDigits: 0})}</div>`;
+                    if (data.exp > 0) content += `<div class="text-[10px] sm:text-[12px] text-red-600 font-bold leading-tight bg-red-100 rounded px-1.5 py-0.5 text-center tabular-nums">-${data.exp.toLocaleString('en-US', {minimumFractionDigits: 0})}</div>`;
                 }
                 const isToday = new Date().toDateString() === new Date(year, month, i).toDateString();
                 const bgClass = isToday ? 'bg-mop-lighter/20 shadow-inner' : 'bg-white hover:bg-slate-50', borderClass = isToday ? 'ring-2 ring-inset ring-mop-primary relative z-10' : '';
-                grid.innerHTML += `<div class="${bgClass} ${borderClass} p-2 min-h-[80px] cursor-pointer transition-colors flex flex-col border-b border-r border-slate-100/50" onclick="filterLedgerByDate(${year}, ${month}, ${i})">${content}</div>`;
+                grid.innerHTML += `<div class="${bgClass} ${borderClass} p-2 min-h-[104px] sm:min-h-[120px] cursor-pointer transition-colors flex flex-col border-b border-r border-slate-100/50" onclick="filterLedgerByDate(${year}, ${month}, ${i})">${content}</div>`;
             }
             const totalCells = firstDay + daysInMonth, remainingCells = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
-            for(let i = 0; i < remainingCells; i++) grid.innerHTML += `<div class="bg-white/40 min-h-[80px]"></div>`;
+            for(let i = 0; i < remainingCells; i++) grid.innerHTML += `<div class="bg-white/40 min-h-[104px] sm:min-h-[120px]"></div>`;
         }
 
         function changeCalendarMonth(delta) { currentCalendarDate.setMonth(currentCalendarDate.getMonth() + delta); renderLedgerCalendar(); }
