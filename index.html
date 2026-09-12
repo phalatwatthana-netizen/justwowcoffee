@@ -395,7 +395,7 @@
 
                 <div class="p-6 lg:p-8">
                     <!-- Unified Add Stock Form -->
-                    <div class="bg-white/80 backdrop-blur-xl p-6 rounded-[24px] border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] mb-8">
+                    <div id="stock-receive-form" class="bg-white/80 backdrop-blur-xl p-6 rounded-[24px] border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] mb-8 scroll-mt-4 transition-all">
                         <h3 class="text-sm font-bold text-mop-dark mb-4 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-mop-primary"></span> รับเข้าสต๊อก / ลงทะเบียนวัตถุดิบใหม่</h3>
                         <p class="text-[11px] text-slate-500 font-medium mb-4 -mt-2">พิมพ์ชื่อใหม่เพื่อขึ้นทะเบียน หรือพิมพ์ชื่อเดิมเพื่อเติมสต๊อก ระบบจะอัปเดตราคาล่าสุดให้ในสูตรคำนวณอัตโนมัติ</p>
                         
@@ -562,6 +562,7 @@
                                     <button onclick="openPayslipFromLedger('wage')" class="w-full bg-white border border-amber-400 text-amber-700 font-bold py-2 rounded-xl text-[11px] hover:bg-amber-50 transition-colors flex items-center justify-center gap-1.5 shadow-sm"><svg class="w-3.5 h-3.5 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg> ออกสลิปจ่ายค่าจ้าง</button>
                                     <button onclick="openPayslipFromLedger('utility')" class="w-full bg-white border border-sky-400 text-sky-700 font-bold py-2 rounded-xl text-[11px] hover:bg-sky-50 transition-colors flex items-center justify-center gap-1.5 shadow-sm"><svg class="w-3.5 h-3.5 text-sky-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> ออกสลิปค่าสาธารณูปโภค</button>
                                     <button onclick="openPayslipFromLedger('real')" class="w-full bg-white border border-slate-400 text-slate-700 font-bold py-2 rounded-xl text-[11px] hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5 shadow-sm"><svg class="w-3.5 h-3.5 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg> ออกสลิปจริง (แนบรูป)</button>
+                                    <button onclick="goToReceiveStock()" class="w-full bg-white border border-green-500 text-green-700 font-bold py-2 rounded-xl text-[11px] hover:bg-green-50 transition-colors flex items-center justify-center gap-1.5 shadow-sm"><svg class="w-3.5 h-3.5 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg> รับเข้าสต๊อก / วัตถุดิบใหม่</button>
                                 </div>
                             </div>
                         </section>
@@ -1265,6 +1266,21 @@
             }
 
             window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // ปุ่มลัดจากหน้าบัญชี → ไปฟอร์มรับเข้าสต๊อก/ลงทะเบียนวัตถุดิบใหม่ (ในแท็บคลังวัตถุดิบ)
+        function goToReceiveStock() {
+            switchTab('inventory');
+            setTimeout(() => {
+                const el = document.getElementById('stock-receive-form');
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    el.classList.add('ring-2', 'ring-mop-primary');
+                    setTimeout(() => el.classList.remove('ring-2', 'ring-mop-primary'), 2200);
+                }
+                const name = document.getElementById('stock-input-name');
+                if (name) { try { name.focus({ preventScroll: true }); } catch (e) { name.focus(); } }
+            }, 260);
         }
 
         function attachCertToStock(dataUrl) {
