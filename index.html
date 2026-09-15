@@ -2447,6 +2447,18 @@
                 }
             }
 
+            // Fallback: อ่านรายการจากตารางในเอกสารโดยตรง (กรณีสร้างจากบัญชี หรือผู้ใช้แก้ไขในตารางเอง)
+            if (items.length === 0) {
+                grandTotal = 0; items = [];
+                document.querySelectorAll('#preview-items-cert-modal tr').forEach(tr => {
+                    const tds = tr.querySelectorAll('td');
+                    if (tds.length < 3) return;
+                    const name = (tds[1].innerText || '').trim();
+                    const amt = parseFloat((tds[2].innerText || '').replace(/[^\d.\-]/g, '')) || 0;
+                    if (name || amt > 0) { items.push({ name: name || 'รายการ', qty: 1, price: amt, total: amt }); grandTotal += amt; }
+                });
+            }
+
             if (items.length === 0) {
                 alert('กรุณาเพิ่มรายการสินค้าอย่างน้อย 1 รายการก่อนบันทึก');
                 return;
