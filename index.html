@@ -5000,9 +5000,25 @@
             });
         }
 
+        // ตั้ง src รูปลายเซ็นแบบทนทาน: ลองโหลดตรง ถ้าไม่ขึ้นให้ fallback ผ่านพร็อกซีรูป (กันลิงก์ Drive โหลดไม่ขึ้น)
+        function setSignatureImage(imgEl, rawUrl) {
+            if (!imgEl) return;
+            if (!rawUrl) { imgEl.onerror = null; imgEl.src = ''; imgEl.classList.add('hidden'); return; }
+            const direct = toDirectImageUrl(rawUrl);
+            imgEl.onerror = function () {
+                imgEl.onerror = null;
+                if (String(direct).startsWith('data:')) return;
+                const noProto = String(direct).replace(/^https?:\/\//, '');
+                imgEl.src = 'https://images.weserv.nl/?url=ssl:' + encodeURIComponent(noProto);
+            };
+            imgEl.src = direct;
+            imgEl.classList.remove('hidden');
+        }
+
         // เลือกลายเซ็นจากชีต -> แสดงในเอกสาร (receipt = ผู้รับเงิน, cert = ผู้อนุมัติ) แยกกันคนละหน้า
         function applySheetSignature(idx, context) {
             const item = (idx === '' || idx === null || idx === undefined) ? null : signaturesSheetData[parseInt(idx)];
+            const rawUrl = item ? item.signature : '';
             const directUrl = item ? toDirectImageUrl(item.signature) : '';
             const name = item ? (item.name || '') : '';
 
@@ -5010,8 +5026,7 @@
                 selectedSheetSig = item ? directUrl : null;
                 selectedSheetSigName = name;
                 // ลายเซ็นบนเอกสารใบเสร็จ
-                const p1 = document.getElementById('preview-signature-print-receipt');
-                if (p1) { if (item) { p1.src = directUrl; p1.classList.remove('hidden'); } else { p1.src = ''; p1.classList.add('hidden'); } }
+                setSignatureImage(document.getElementById('preview-signature-print-receipt'), rawUrl);
                 const nm = document.getElementById('preview-signature-name-receipt');
                 if (nm) nm.innerText = name;
                 // กล่องพรีวิวในแผงกรอกข้อมูล
@@ -5019,13 +5034,12 @@
                 const boxImg = document.getElementById('receipt-sig-preview-img');
                 const boxName = document.getElementById('receipt-sig-preview-name');
                 if (box && boxImg && boxName) {
-                    if (item) { boxImg.src = directUrl; boxName.innerText = name; box.classList.remove('hidden'); box.classList.add('flex'); }
-                    else { boxImg.src = ''; boxName.innerText = ''; box.classList.add('hidden'); box.classList.remove('flex'); }
+                    if (item) { setSignatureImage(boxImg, rawUrl); boxName.innerText = name; box.classList.remove('hidden'); box.classList.add('flex'); }
+                    else { setSignatureImage(boxImg, ''); boxName.innerText = ''; box.classList.add('hidden'); box.classList.remove('flex'); }
                 }
             } else if (context === 'cert') {
                 // ลายเซ็นบนบรรทัด (ผู้อนุมัติ) ของใบรับรอง
-                const p2 = document.getElementById('preview-signature-print-cert-1');
-                if (p2) { if (item) { p2.src = directUrl; p2.classList.remove('hidden'); } else { p2.src = ''; p2.classList.add('hidden'); } }
+                setSignatureImage(document.getElementById('preview-signature-print-cert-1'), rawUrl);
                 const cn = document.getElementById('cert-preview-approver-name');
                 if (cn) cn.innerText = name;
                 // กล่องพรีวิวในแผงกรอกข้อมูล
@@ -5033,13 +5047,12 @@
                 const boxImg = document.getElementById('cert-approver-sig-preview-img');
                 const boxName = document.getElementById('cert-approver-sig-preview-name');
                 if (box && boxImg && boxName) {
-                    if (item) { boxImg.src = directUrl; boxName.innerText = name; box.classList.remove('hidden'); box.classList.add('flex'); }
-                    else { boxImg.src = ''; boxName.innerText = ''; box.classList.add('hidden'); box.classList.remove('flex'); }
+                    if (item) { setSignatureImage(boxImg, rawUrl); boxName.innerText = name; box.classList.remove('hidden'); box.classList.add('flex'); }
+                    else { setSignatureImage(boxImg, ''); boxName.innerText = ''; box.classList.add('hidden'); box.classList.remove('flex'); }
                 }
             } else if (context === 'cert-payee') {
                 // ลายเซ็นบนบรรทัด (ผู้เบิกจ่าย) ของใบรับรอง
-                const p3 = document.getElementById('preview-signature-print-cert-payee');
-                if (p3) { if (item) { p3.src = directUrl; p3.classList.remove('hidden'); } else { p3.src = ''; p3.classList.add('hidden'); } }
+                setSignatureImage(document.getElementById('preview-signature-print-cert-payee'), rawUrl);
                 const pn = document.getElementById('cert-preview-payee-sig-name');
                 if (pn) pn.innerText = name;
                 // กล่องพรีวิวในแผงกรอกข้อมูล
@@ -5047,18 +5060,17 @@
                 const boxImg = document.getElementById('cert-payee-sig-preview-img');
                 const boxName = document.getElementById('cert-payee-sig-preview-name');
                 if (box && boxImg && boxName) {
-                    if (item) { boxImg.src = directUrl; boxName.innerText = name; box.classList.remove('hidden'); box.classList.add('flex'); }
-                    else { boxImg.src = ''; boxName.innerText = ''; box.classList.add('hidden'); box.classList.remove('flex'); }
+                    if (item) { setSignatureImage(boxImg, rawUrl); boxName.innerText = name; box.classList.remove('hidden'); box.classList.add('flex'); }
+                    else { setSignatureImage(boxImg, ''); boxName.innerText = ''; box.classList.add('hidden'); box.classList.remove('flex'); }
                 }
             } else if (context === 'payslip') {
                 payslipSigDataUrl = item ? directUrl : '';
-                const p = document.getElementById('payslip-sig-img');
-                if (p) { if (item) { p.src = directUrl; p.classList.remove('hidden'); } else { p.src = ''; p.classList.add('hidden'); } }
+                setSignatureImage(document.getElementById('payslip-sig-img'), rawUrl);
                 const n = document.getElementById('payslip-sig-name'); if (n) n.innerText = name;
                 const box = document.getElementById('payslip-sig-box'), bi = document.getElementById('payslip-sig-box-img'), bn = document.getElementById('payslip-sig-box-name');
                 if (box && bi && bn) {
-                    if (item) { bi.src = directUrl; bn.innerText = name; box.classList.remove('hidden'); box.classList.add('flex'); }
-                    else { bi.src = ''; bn.innerText = ''; box.classList.add('hidden'); box.classList.remove('flex'); }
+                    if (item) { setSignatureImage(bi, rawUrl); bn.innerText = name; box.classList.remove('hidden'); box.classList.add('flex'); }
+                    else { setSignatureImage(bi, ''); bn.innerText = ''; box.classList.add('hidden'); box.classList.remove('flex'); }
                 }
             }
 
