@@ -3020,6 +3020,13 @@
             return new Date(parseInt(tsString));
         }
 
+        // อ่านยอดเงินแบบทนทาน: รองรับตัวเลขที่เด้งกลับมาเป็นข้อความมีคอมมา/สัญลักษณ์เงิน (เช่น "1,490.00", "฿860")
+        function parseAmt(v) {
+            if (typeof v === 'number') return isFinite(v) ? v : 0;
+            const n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.\-]/g, ''));
+            return isFinite(n) ? n : 0;
+        }
+
         let currentLedgerReceipt = null;
 
         function handleLedgerReceiptUpload(event) {
@@ -3803,7 +3810,7 @@
                 const d = getValidDateFromId(item.id); if (isNaN(d.getTime())) return;
                 if (d.getFullYear() === year && d.getMonth() === month) {
                     const day = d.getDate(); if (!monthlyData[day]) monthlyData[day] = { inc: 0, exp: 0 };
-                    const amt = parseFloat(item?.amount) || 0;
+                    const amt = parseAmt(item?.amount);
                     if (item.type === 'income') monthlyData[day].inc += amt; else monthlyData[day].exp += amt;
                 }
             });
@@ -3856,7 +3863,7 @@
                 if(container) container.innerHTML = '<div class="text-center text-slate-400 py-8 font-medium bg-white/50 rounded-2xl border border-white">ไม่พบข้อมูลในระบบ</div>';
             } else {
                 if(container) container.innerHTML = filteredData.map(item => {
-                    const isInc = item.type === 'income', amt = parseFloat(item?.amount) || 0; 
+                    const isInc = item.type === 'income', amt = parseAmt(item?.amount);
                     if(isInc) totalIncome += amt; else totalExpense += amt;
                     const dateStr = item.date || '', dateOnly = dateStr.split(' ')[0] || dateStr, timeOnly = dateStr.split(' ').slice(1).join(' ') || '';
                     let receiptIcon = '';
