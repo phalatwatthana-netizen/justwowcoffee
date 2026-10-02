@@ -1723,7 +1723,9 @@
                 } else if (deleteTargetType === 'stock') {
                     stockData = stockData.filter(item => String(item.id) !== String(deleteTargetId)); saveStock();
                 } else if (deleteTargetType === 'ledger') {
-                    ledgerData = ledgerData.filter(item => String(item.id) !== String(deleteTargetId)); saveLedger();
+                    const delId = String(deleteTargetId);
+                    ledgerData = ledgerData.filter(item => String(item.id) !== delId);
+                    syncLedgerToSheetSafe(m => m.delete(delId));
                 } else if (deleteTargetType === 'receipt') {
                     receiptsData = receiptsData.filter(item => String(item.id) !== String(deleteTargetId));
                     localStorage.setItem('jwc_receipts', JSON.stringify(receiptsData));
@@ -2998,6 +3000,33 @@
             }
         }
 
+        // ซิงค์การลบ/แก้ไขขึ้นชีตแบบปลอดภัย: อ่านรายการล่าสุดจากชีตก่อน แล้วเปลี่ยนเฉพาะ id ที่ต้องการ
+        // ถ้าอ่านชีตไม่ได้ จะไม่เขียนทับ (กันข้อมูลเดือนอื่นหายเพราะ in-memory ไม่ครบ)
+        async function syncLedgerToSheetSafe(mutate) {
+            // อัปเดต local ทันทีเพื่อ UI ตอบสนอง (ledgerData ถูกแก้โดยผู้เรียกแล้ว)
+            localStorage.setItem('jwc_ledger', JSON.stringify(ledgerData));
+            renderLedger();
+            if (!GOOGLE_SHEET_WEBAPP_URL) return;
+            let base = null, ok = false;
+            try {
+                const r = await fetch(GOOGLE_SHEET_WEBAPP_URL + '?action=getLedger');
+                const d = await r.json();
+                if (Array.isArray(d)) { base = d.filter(x => x && x.id); ok = true; }
+            } catch (e) {}
+            if (!ok) { showToast('⚠️ อ่านชีตไม่ได้ จึงยังไม่ซิงค์ขึ้นชีต (กันข้อมูลเดือนอื่นหาย) — ลองใหม่เมื่อเน็ตพร้อม', 'error'); return; }
+            const byId = new Map();
+            base.forEach(x => byId.set(String(x.id), x));
+            mutate(byId); // ผู้เรียกลบ/แก้เฉพาะ id บนข้อมูลที่ดึงจากชีต
+            ledgerData = Array.from(byId.values());
+            ledgerData.sort((a, b) => getValidDateFromId(b.id).getTime() - getValidDateFromId(a.id).getTime());
+            localStorage.setItem('jwc_ledger', JSON.stringify(ledgerData));
+            try {
+                const fd = new FormData(); fd.append('action', 'saveLedger'); fd.append('data', JSON.stringify(ledgerData));
+                await fetch(GOOGLE_SHEET_WEBAPP_URL, { method: 'POST', body: fd, mode: 'no-cors' });
+            } catch (e) {}
+            renderLedger();
+        }
+
         // เพิ่มรายการลงบัญชีแบบต่อเนื่อง: ดึงประวัติล่าสุดจากชีตมารวมก่อนเขียนกลับ (กันประวัติเก่าหาย)
         async function saveLedgerEntryMerged(newEntry) {
             // แสดงผลทันที (optimistic) แล้วค่อยซิงค์กับชีต
@@ -3777,7 +3806,9 @@
                 ledgerData[index].amount = amt;
                 if (currentEditLedgerReceipt !== null) ledgerData[index].receipt = currentEditLedgerReceipt;
                 else if (document.getElementById('edit-ledger-receipt-preview').classList.contains('hidden')) ledgerData[index].receipt = null;
-                saveLedger(); closeEditLedgerModal();
+                const updatedEntry = Object.assign({}, ledgerData[index]);
+                syncLedgerToSheetSafe(m => m.set(String(updatedEntry.id), updatedEntry));
+                closeEditLedgerModal();
             }
         }
 
