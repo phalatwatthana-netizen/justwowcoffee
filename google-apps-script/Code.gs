@@ -181,11 +181,161 @@ function writeObjects(sheet, arr) {
 }
 
 // ==========================================
+// 🔒 ต่อแถว (row-level) — ปลอดภัยหลายเครื่อง
+//    upsert/delete ทีละแถวตาม id โดยไม่ล้างทั้งชีต จึงไม่เขียนทับข้อมูลเครื่องอื่นหาย
+// ==========================================
+const ROW_COLLECTIONS = {
+  Stock:        { imageFields: ['image'] },
+  Ledger:       { imageFields: ['receipt'] },
+  Receipts:     { imageFields: ['signature', 'image'] },
+  Certificates: { imageFields: ['image', 'slip'] }
+};
+
+// อัปโหลดฟิลด์รูป (base64) ของ "แถวเดียว" ขึ้น Drive แล้วแทนที่ด้วย URL
+function _uploadRowImages(collName, obj) {
+  var cfg = ROW_COLLECTIONS[collName];
+  if (!cfg) return obj;
+  (cfg.imageFields || []).forEach(function (f) {
+    var v = obj[f];
+    if (v == null) return;
+    if (Array.isArray(v)) {
+      obj[f] = v.map(function (img, idx) {
+        if (img && String(img).indexOf('data:image') === 0) {
+          var url = saveImageToDrive(img, collName + '_' + (obj.id || Date.now()) + '_' + f + idx + '.jpg');
+          return url || img;
+        }
+        return img;
+      });
+    } else if (typeof v === 'string' && v.indexOf('data:image') === 0) {
+      var url = saveImageToDrive(v, collName + '_' + (obj.id || Date.now()) + '_' + f + '.jpg');
+      obj[f] = url || (f === 'receipt' ? '' : v);
+    }
+  });
+  return obj;
+}
+
+function _cellVal(v) {
+  if (v === undefined || v === null) return '';
+  if (typeof v === 'object') return JSON.stringify(v);
+  return v;
+}
+
+// ให้แน่ใจว่ามีหัวคอลัมน์ครบตาม keys (เพิ่มคอลัมน์ใหม่ถ้ายังไม่มี โดยไม่ลบของเดิม)
+function _ensureHeaders(sheet, keys) {
+  var lastCol = sheet.getLastColumn();
+  var headers = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+  var nonEmpty = headers.filter(function (h) { return h !== '' && h !== null; });
+  if (nonEmpty.length === 0) {
+    headers = keys.slice();
+    if (headers.indexOf('id') === -1) headers.unshift('id');
+    else { headers.splice(headers.indexOf('id'), 1); headers.unshift('id'); }
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    return headers;
+  }
+  var added = false;
+  keys.forEach(function (k) { if (headers.indexOf(k) === -1) { headers.push(k); added = true; } });
+  if (added) sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  return headers;
+}
+
+function _rowArray(headers, obj) {
+  return headers.map(function (h) { return _cellVal(obj[h]); });
+}
+
+// เพิ่ม/แก้หลายแถวตาม id (ไม่ล้างชีต) — อ่านชีตครั้งเดียว รองรับนำเข้าหลายรายการเร็ว
+function upsertRows(ss, collName, rows) {
+  var sheet = ss.getSheetByName(collName) || ss.insertSheet(collName);
+  var oldArr = sheetToObjects(ss, collName);
+  var oldById = {};
+  oldArr.forEach(function (o) { if (o && o.id != null) oldById[String(o.id)] = o; });
+  var cfg = ROW_COLLECTIONS[collName];
+
+  // อัปโหลดรูป + ทิ้งไฟล์เก่าที่ถูกแทนที่ + รวมคีย์ทั้งหมดที่ต้องมีหัวคอลัมน์
+  var allKeys = {};
+  rows.forEach(function (obj) {
+    if (!obj || obj.id == null || obj.id === '') return;
+    _uploadRowImages(collName, obj);
+    if (cfg && oldById[String(obj.id)]) _trashRemovedFiles([oldById[String(obj.id)]], [obj], cfg.imageFields);
+    Object.keys(obj).forEach(function (k) { allKeys[k] = true; });
+  });
+  var headers = _ensureHeaders(sheet, Object.keys(allKeys));
+  var idCol = headers.indexOf('id');
+
+  // อ่านชีตครั้งเดียว ทำแผนที่ id -> หมายเลขแถว
+  var data = sheet.getDataRange().getValues();
+  var rowOf = {};
+  for (var i = 1; i < data.length; i++) rowOf[String(data[i][idCol])] = i + 1;
+
+  var appends = [];
+  rows.forEach(function (obj) {
+    if (!obj || obj.id == null || obj.id === '') return;
+    var rowArr = _rowArray(headers, obj);
+    var r = rowOf[String(obj.id)];
+    if (r) sheet.getRange(r, 1, 1, headers.length).setValues([rowArr]);
+    else appends.push(rowArr);
+  });
+  if (appends.length) sheet.getRange(sheet.getLastRow() + 1, 1, appends.length, headers.length).setValues(appends);
+  return true;
+}
+
+// ลบ 1 แถวตาม id + ทิ้งไฟล์ Drive ของแถวนั้นถ้าไม่มีแถวอื่นอ้างอิง
+function deleteRowById(ss, collName, id) {
+  var sheet = ss.getSheetByName(collName);
+  if (!sheet) return false;
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return false;
+  var headers = data[0];
+  var idCol = headers.indexOf('id');
+  if (idCol === -1) return false;
+  var targetRow = -1, deletedObj = null;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]) === String(id)) {
+      targetRow = i + 1;
+      deletedObj = {};
+      headers.forEach(function (h, c) { deletedObj[h] = data[i][c]; });
+      break;
+    }
+  }
+  if (targetRow < 0) return false;
+  sheet.deleteRow(targetRow);
+  var cfg = ROW_COLLECTIONS[collName];
+  if (cfg && deletedObj) {
+    var remaining = sheetToObjects(ss, collName);
+    _trashRemovedFiles([deletedObj], remaining, cfg.imageFields);
+  }
+  return true;
+}
+
+// ==========================================
 // 💾 บันทึกข้อมูลลง Sheets (POST Request)
 // ==========================================
 function doPost(e) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const action = e.parameter.action;
+
+  // ---- ต่อแถว (ปลอดภัยหลายเครื่อง) : upsertRows / deleteRow ----
+  if (action === 'upsertRows' || action === 'deleteRow') {
+    const collName = e.parameter.collection;
+    if (!ROW_COLLECTIONS[collName]) return ContentService.createTextOutput('Bad collection: ' + collName);
+    const lock = LockService.getScriptLock();
+    try { lock.waitLock(30000); } catch (e2) { return ContentService.createTextOutput('Busy, try again'); }
+    try {
+      if (action === 'upsertRows') {
+        let rows = [];
+        try { rows = JSON.parse(e.parameter.data || '[]'); } catch (err) { return ContentService.createTextOutput('JSON Parse Error'); }
+        if (!Array.isArray(rows)) rows = [rows];
+        upsertRows(ss, collName, rows);
+        return ContentService.createTextOutput('Upsert OK (' + rows.length + ')');
+      } else {
+        deleteRowById(ss, collName, e.parameter.id);
+        return ContentService.createTextOutput('Delete OK');
+      }
+    } catch (err) {
+      return ContentService.createTextOutput('Error: ' + err.message);
+    } finally {
+      lock.releaseLock();
+    }
+  }
 
   // ---- บันทึกคลังสินค้า (อัปโหลดรูปลง Drive) ----
   if (action === 'saveStock') {
