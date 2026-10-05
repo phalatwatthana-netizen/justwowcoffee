@@ -2988,16 +2988,33 @@
             renderLedger();
         }
 
-        function saveLedger() {
+        // เขียนขึ้นชีตแบบปลอดภัยหลายเครื่อง: ดึงข้อมูลล่าสุดจากชีตมารวมก่อนเสมอ
+        // (ของในเครื่องชนะต่อ id เดียวกัน, คง id อื่นที่มีในชีตไว้) จึงไม่เขียนทับข้อมูลเครื่องอื่นให้หาย
+        async function saveLedger() {
             ledgerData.sort((a, b) => getValidDateFromId(b.id).getTime() - getValidDateFromId(a.id).getTime());
             localStorage.setItem('jwc_ledger', JSON.stringify(ledgerData));
             renderLedger();
-            if (GOOGLE_SHEET_WEBAPP_URL) {
-                try {
-                    const formData = new FormData(); formData.append('action', 'saveLedger'); formData.append('data', JSON.stringify(ledgerData));
-                    fetch(GOOGLE_SHEET_WEBAPP_URL, { method: 'POST', body: formData, mode: 'no-cors' });
-                } catch(e) {}
+            if (!GOOGLE_SHEET_WEBAPP_URL) return;
+            let base = [], ok = false;
+            try { const r = await fetch(GOOGLE_SHEET_WEBAPP_URL + '?action=getLedger'); const d = await r.json(); if (Array.isArray(d)) { base = d.filter(x => x && x.id); ok = true; } } catch (e) {}
+            let out = ledgerData;
+            if (ok) {
+                const byId = new Map();
+                base.forEach(x => { if (x && x.id) byId.set(String(x.id), x); });        // เริ่มจากของในชีต
+                ledgerData.forEach(x => { if (x && x.id) byId.set(String(x.id), x); });   // ของในเครื่องทับเฉพาะ id เดียวกัน
+                out = Array.from(byId.values());
+                out.sort((a, b) => getValidDateFromId(b.id).getTime() - getValidDateFromId(a.id).getTime());
+                ledgerData = out;
+                localStorage.setItem('jwc_ledger', JSON.stringify(ledgerData));
+                renderLedger();
+            } else {
+                showToast('⚠️ อ่านชีตไม่ได้ จึงยังไม่ซิงค์ขึ้นชีต (กันข้อมูลเครื่องอื่นหาย)', 'error');
+                return;
             }
+            try {
+                const formData = new FormData(); formData.append('action', 'saveLedger'); formData.append('data', JSON.stringify(out));
+                await fetch(GOOGLE_SHEET_WEBAPP_URL, { method: 'POST', body: formData, mode: 'no-cors' });
+            } catch (e) {}
         }
 
         // ซิงค์การลบ/แก้ไขขึ้นชีตแบบปลอดภัย: อ่านรายการล่าสุดจากชีตก่อน แล้วเปลี่ยนเฉพาะ id ที่ต้องการ
