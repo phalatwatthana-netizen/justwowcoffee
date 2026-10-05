@@ -1721,17 +1721,20 @@
                     }
                     localStorage.setItem('jwc_history', JSON.stringify(historyData));
                 } else if (deleteTargetType === 'stock') {
-                    stockData = stockData.filter(item => String(item.id) !== String(deleteTargetId)); saveStock();
+                    const sDelId = String(deleteTargetId);
+                    stockData = stockData.filter(item => String(item.id) !== sDelId);
+                    localStorage.setItem('jwc_stock', JSON.stringify(stockData)); renderStock();
+                    syncDeleteRow('Stock', sDelId);
                 } else if (deleteTargetType === 'ledger') {
                     const delId = String(deleteTargetId);
                     ledgerData = ledgerData.filter(item => String(item.id) !== delId);
-                    syncLedgerToSheetSafe(m => m.delete(delId));
+                    localStorage.setItem('jwc_ledger', JSON.stringify(ledgerData)); renderLedger();
+                    syncDeleteRow('Ledger', delId);
                 } else if (deleteTargetType === 'receipt') {
-                    receiptsData = receiptsData.filter(item => String(item.id) !== String(deleteTargetId));
+                    const rcDelId = String(deleteTargetId);
+                    receiptsData = receiptsData.filter(item => String(item.id) !== rcDelId);
                     localStorage.setItem('jwc_receipts', JSON.stringify(receiptsData));
-                    if (GOOGLE_SHEET_WEBAPP_URL) {
-                        try { const fd = new FormData(); fd.append('action', 'saveReceipts'); fd.append('data', JSON.stringify(receiptsData)); fetch(GOOGLE_SHEET_WEBAPP_URL, { method: 'POST', body: fd, mode: 'no-cors' }); } catch(e) {}
-                    }
+                    syncDeleteRow('Receipts', rcDelId);
                     if (typeof renderReceiptHistory === 'function') renderReceiptHistory();
                     if (typeof updateReceiptDatalists === 'function') updateReceiptDatalists();
                 }
@@ -1777,17 +1780,12 @@
             renderStock();
         }
 
+        // บันทึกคลัง — ซิงค์ต่อแถว (อัปเดต/เพิ่มทุกรายการตาม id โดยไม่ล้างชีต กันข้อมูลหลายเครื่องหาย)
+        // หมายเหตุ: การลบสต๊อกต้องเรียก syncDeleteRow('Stock', id) แยก (upsert ไม่ลบแถว)
         async function saveStock() {
             localStorage.setItem('jwc_stock', JSON.stringify(stockData));
             renderStock();
-            if (GOOGLE_SHEET_WEBAPP_URL) {
-                try {
-                    const formData = new FormData();
-                    formData.append('action', 'saveStock');
-                    formData.append('data', JSON.stringify(stockData));
-                    fetch(GOOGLE_SHEET_WEBAPP_URL, { method: 'POST', body: formData, mode: 'no-cors' });
-                } catch(e) {}
-            }
+            await syncUpsertRows('Stock', stockData);
         }
 
         function handleImageUpload(event) {
@@ -2299,14 +2297,7 @@
             if (!confirm('ต้องการลบใบรับรอง ' + ((cert && cert.certNo) ? cert.certNo + ' ' : '') + 'นี้ออกจากระบบ?')) return;
             certificatesData = certificatesData.filter(c => c.id !== id);
             localStorage.setItem('jwc_certificates', JSON.stringify(certificatesData));
-            if (GOOGLE_SHEET_WEBAPP_URL) {
-                try {
-                    const formData = new FormData();
-                    formData.append('action', 'saveCertificates');
-                    formData.append('data', JSON.stringify(certificatesData));
-                    await fetch(GOOGLE_SHEET_WEBAPP_URL, { method: 'POST', body: formData, mode: 'no-cors' });
-                } catch (e) {}
-            }
+            await syncDeleteRow('Certificates', id);
             showToast('🗑️ ลบใบรับรองแล้ว', 'success');
             if (typeof updateCertDatalists === 'function') updateCertDatalists();
             searchCertificates();
@@ -2424,6 +2415,28 @@
             return merged;
         }
 
+        // ===== ซิงค์ต่อแถว (ปลอดภัยหลายเครื่อง): เพิ่ม/แก้/ลบทีละแถวตาม id โดยไม่แตะทั้งชีต =====
+        async function syncUpsertRows(collection, rows) {
+            if (!GOOGLE_SHEET_WEBAPP_URL || !rows || !rows.length) return;
+            try {
+                const fd = new FormData();
+                fd.append('action', 'upsertRows');
+                fd.append('collection', collection);
+                fd.append('data', JSON.stringify(rows));
+                await fetch(GOOGLE_SHEET_WEBAPP_URL, { method: 'POST', body: fd, mode: 'no-cors' });
+            } catch (e) {}
+        }
+        async function syncDeleteRow(collection, id) {
+            if (!GOOGLE_SHEET_WEBAPP_URL) return;
+            try {
+                const fd = new FormData();
+                fd.append('action', 'deleteRow');
+                fd.append('collection', collection);
+                fd.append('id', String(id));
+                await fetch(GOOGLE_SHEET_WEBAPP_URL, { method: 'POST', body: fd, mode: 'no-cors' });
+            } catch (e) {}
+        }
+
         async function saveCurrentCert() {
             const company = document.getElementById('cert-company-modal').value.trim();
             const payee = document.getElementById('cert-payee-modal').value.trim();
@@ -2500,9 +2513,12 @@
                 image: certDocImg
             };
 
-            // บันทึกแบบต่อเนื่อง: รวมกับประวัติเดิมในชีตก่อนเขียนกลับ (ไม่เขียนทับของเก่า)
+            // ซิงค์ต่อแถว: เพิ่ม/แทนที่ใบรับรองตาม id (ไม่แตะแถวอื่น กันข้อมูลหลายเครื่องหาย)
             bumpCertCounter(currentCertNo);
-            certificatesData = await persistListMerged('getCertificates', 'saveCertificates', 'jwc_certificates', certificatesData, newCert);
+            const cIdx = certificatesData.findIndex(c => c && String(c.id) === String(newCert.id));
+            if (cIdx >= 0) certificatesData[cIdx] = newCert; else certificatesData.push(newCert);
+            localStorage.setItem('jwc_certificates', JSON.stringify(certificatesData));
+            await syncUpsertRows('Certificates', [newCert]);
 
             if(btn) {
                 btn.innerHTML = '✅ บันทึกสำเร็จ!';
@@ -3044,19 +3060,15 @@
             renderLedger();
         }
 
-        // เพิ่มรายการลงบัญชีแบบต่อเนื่อง: ดึงประวัติล่าสุดจากชีตมารวมก่อนเขียนกลับ (กันประวัติเก่าหาย)
+        // เพิ่มรายการลงบัญชี — ซิงค์ต่อแถว (เพิ่มเฉพาะแถวนี้ขึ้นชีต ไม่แตะแถวอื่น กันข้อมูลหลายเครื่องหาย)
         async function saveLedgerEntryMerged(newEntry) {
-            // แสดงผลทันที (optimistic) แล้วค่อยซิงค์กับชีต
             if (newEntry && newEntry.id && !ledgerData.some(e => e.id === newEntry.id)) {
                 ledgerData.unshift(newEntry);
-                ledgerData.sort((a, b) => getValidDateFromId(b.id).getTime() - getValidDateFromId(a.id).getTime());
-                localStorage.setItem('jwc_ledger', JSON.stringify(ledgerData));
-                renderLedger();
             }
-            ledgerData = await persistListMerged('getLedger', 'saveLedger', 'jwc_ledger', ledgerData, newEntry);
             ledgerData.sort((a, b) => getValidDateFromId(b.id).getTime() - getValidDateFromId(a.id).getTime());
             localStorage.setItem('jwc_ledger', JSON.stringify(ledgerData));
             renderLedger();
+            await syncUpsertRows('Ledger', [newEntry]);
         }
 
         function getValidDateFromId(idStr) {
@@ -3824,7 +3836,9 @@
                 if (currentEditLedgerReceipt !== null) ledgerData[index].receipt = currentEditLedgerReceipt;
                 else if (document.getElementById('edit-ledger-receipt-preview').classList.contains('hidden')) ledgerData[index].receipt = null;
                 const updatedEntry = Object.assign({}, ledgerData[index]);
-                syncLedgerToSheetSafe(m => m.set(String(updatedEntry.id), updatedEntry));
+                ledgerData.sort((a, b) => getValidDateFromId(b.id).getTime() - getValidDateFromId(a.id).getTime());
+                localStorage.setItem('jwc_ledger', JSON.stringify(ledgerData)); renderLedger();
+                syncUpsertRows('Ledger', [updatedEntry]);
                 closeEditLedgerModal();
             }
         }
@@ -4182,15 +4196,14 @@
             if (dupCount) {
                 if (!confirm('⚠️ พบว่ามี ' + dupCount + ' จาก ' + entries.length + ' รายการซ้ำกับที่บันทึกไว้แล้ว (วันที่+จำนวนเงิน+รายละเอียดตรงกัน)\n\nอาจเป็นการนำเข้าข้อมูลชุดเดิมซ้ำ ยืนยันนำเข้าต่อหรือไม่?')) return;
             }
+            // รวมเข้าข้อมูลในเครื่องเพื่อแสดงผล แล้วซิงค์ขึ้นชีตแบบต่อแถว (เพิ่มเฉพาะรายการที่นำเข้า ไม่แตะแถวอื่น)
             const byId = new Map();
             base.forEach(x => { if (x && x.id) byId.set(String(x.id), x); });
             entries.forEach(e => byId.set(String(e.id), e));
             ledgerData = Array.from(byId.values());
             ledgerData.sort((a, b) => getValidDateFromId(b.id).getTime() - getValidDateFromId(a.id).getTime());
             localStorage.setItem('jwc_ledger', JSON.stringify(ledgerData));
-            if (GOOGLE_SHEET_WEBAPP_URL && (serverOk || base.length > 0)) {
-                try { const fd = new FormData(); fd.append('action', 'saveLedger'); fd.append('data', JSON.stringify(ledgerData)); await fetch(GOOGLE_SHEET_WEBAPP_URL, { method: 'POST', body: fd, mode: 'no-cors' }); } catch (e) {}
-            }
+            await syncUpsertRows('Ledger', entries);
             renderLedger();
             closeImportIncome();
             const total = entries.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
@@ -4814,8 +4827,11 @@
             }
 
             currentEditingReceiptId = null;
-            // บันทึกแบบต่อเนื่อง: รวมกับประวัติเดิมในชีตก่อนเขียนกลับ (แก้ไขรายการเดิม=แทนที่ตาม id, รายการใหม่=ต่อท้าย)
-            receiptsData = await persistListMerged('getReceipts', 'saveReceipts', 'jwc_receipts', receiptsData, newReceipt);
+            // ซิงค์ต่อแถว: แก้ไขรายการเดิม=แทนที่ตาม id, รายการใหม่=ต่อท้าย (ไม่แตะแถวอื่น กันข้อมูลหลายเครื่องหาย)
+            const rIdx = receiptsData.findIndex(r => r && String(r.id) === String(newReceipt.id));
+            if (rIdx >= 0) receiptsData[rIdx] = newReceipt; else receiptsData.push(newReceipt);
+            localStorage.setItem('jwc_receipts', JSON.stringify(receiptsData));
+            await syncUpsertRows('Receipts', [newReceipt]);
             if (GOOGLE_SHEET_WEBAPP_URL) {
                 // โหลดข้อมูลจากชีตใหม่เพื่อดึง URL กลับมาแสดงผลแทนไฟล์ Base64
                 setTimeout(loadReceipts, 4000);
