@@ -337,50 +337,28 @@ function doPost(e) {
     }
   }
 
-  // ---- บันทึกคลังสินค้า (อัปโหลดรูปลง Drive) ----
+  // ---- บันทึกคลังสินค้า (เปลี่ยนเป็น upsert ไม่ล้างชีต กันข้อมูลเครื่องอื่นหาย) ----
   if (action === 'saveStock') {
-    let sheet = ss.getSheetByName('Stock') || ss.insertSheet('Stock');
     let stockArr = [];
     try { stockArr = JSON.parse(e.parameter.data); }
     catch (err) { return ContentService.createTextOutput("JSON Parse Error"); }
-
-    const _oldStock = sheetToObjects(ss, 'Stock'); // เก็บของเดิมไว้เทียบเพื่อลบไฟล์ Drive ที่หายไป
-
-    for (let i = 0; i < stockArr.length; i++) {
-      if (stockArr[i].image && String(stockArr[i].image).startsWith('data:image')) {
-        let dateOnly = stockArr[i].date ? String(stockArr[i].date).split(' ')[0].replace(/\//g, '-') : 'NoDate';
-        let cleanName = stockArr[i].name ? String(stockArr[i].name).replace(/[\\/:*?"<>|]/g, '_') : 'ไม่ระบุ';
-        let fileName = 'Stock_' + dateOnly + '_' + cleanName + '.jpg';
-        const url = saveImageToDrive(stockArr[i].image, fileName);
-        if (url) stockArr[i].image = url;
-      }
-    }
-    _trashRemovedFiles(_oldStock, stockArr, ['image']);
-    writeObjects(sheet, stockArr);
-    return ContentService.createTextOutput("Stock Sync Success");
+    const lock = LockService.getScriptLock();
+    try { lock.waitLock(30000); } catch (e2) { return ContentService.createTextOutput('Busy, try again'); }
+    try { upsertRows(ss, 'Stock', stockArr); return ContentService.createTextOutput("Stock Sync Success (merge)"); }
+    catch (err) { return ContentService.createTextOutput('Error: ' + err.message); }
+    finally { lock.releaseLock(); }
   }
 
-  // ---- บันทึกบัญชีการเงิน (อัปโหลดใบเสร็จ/สลิปลง Drive) ----
+  // ---- บันทึกบัญชีการเงิน (เปลี่ยนเป็น upsert ไม่ล้างชีต กันข้อมูลเครื่องอื่นหาย) ----
   if (action === 'saveLedger') {
-    let sheet = ss.getSheetByName('Ledger') || ss.insertSheet('Ledger');
     let ledgerArr = [];
     try { ledgerArr = JSON.parse(e.parameter.data); }
     catch (err) { return ContentService.createTextOutput("JSON Parse Error"); }
-
-    const _oldLedger = sheetToObjects(ss, 'Ledger');
-
-    for (let i = 0; i < ledgerArr.length; i++) {
-      if (ledgerArr[i].receipt && String(ledgerArr[i].receipt).startsWith('data:image')) {
-        let dateOnly = ledgerArr[i].date ? String(ledgerArr[i].date).split(' ')[0].replace(/\//g, '-') : 'NoDate';
-        let cleanDesc = ledgerArr[i].desc ? String(ledgerArr[i].desc).replace(/[\\/:*?"<>|]/g, '_') : 'ไม่มีรายละเอียด';
-        let fileName = dateOnly + '_' + cleanDesc + '.jpg';
-        const url = saveImageToDrive(ledgerArr[i].receipt, fileName);
-        ledgerArr[i].receipt = url || ""; // อัปโหลดพลาด -> เคลียร์ทิ้ง
-      }
-    }
-    _trashRemovedFiles(_oldLedger, ledgerArr, ['receipt']);
-    writeObjects(sheet, ledgerArr);
-    return ContentService.createTextOutput("Ledger Sync Success");
+    const lock = LockService.getScriptLock();
+    try { lock.waitLock(30000); } catch (e2) { return ContentService.createTextOutput('Busy, try again'); }
+    try { upsertRows(ss, 'Ledger', ledgerArr); return ContentService.createTextOutput("Ledger Sync Success (merge)"); }
+    catch (err) { return ContentService.createTextOutput('Error: ' + err.message); }
+    finally { lock.releaseLock(); }
   }
 
   // ---- บันทึกประวัติคำนวณสูตร (เพิ่มทีละแถว) ----
@@ -429,61 +407,28 @@ function doPost(e) {
     return ContentService.createTextOutput("Deleted");
   }
 
-  // ---- บันทึกใบเสร็จรับเงิน ----
+  // ---- บันทึกใบเสร็จรับเงิน (เปลี่ยนเป็น upsert ไม่ล้างชีต กันข้อมูลเครื่องอื่นหาย) ----
   if (action === 'saveReceipts') {
-    let sheet = ss.getSheetByName('Receipts') || ss.insertSheet('Receipts');
     let arr = [];
     try { arr = JSON.parse(e.parameter.data); }
     catch (err) { return ContentService.createTextOutput("JSON Parse Error"); }
-
-    const _oldReceipts = sheetToObjects(ss, 'Receipts');
-
-    // อัปโหลดลายเซ็น + รูปเอกสารใบเสร็จ ขึ้น Drive แล้วเก็บเป็น URL (กันเกินขีดจำกัด 50,000 ตัวอักษร/ช่อง)
-    for (let i = 0; i < arr.length; i++) {
-      if (arr[i].signature && String(arr[i].signature).startsWith('data:image')) {
-        const url = saveImageToDrive(arr[i].signature, 'Signature_' + (arr[i].receiptNo || Date.now()) + '.png');
-        if (url) arr[i].signature = url;
-      }
-      if (arr[i].image && String(arr[i].image).startsWith('data:image')) {
-        const rno = (arr[i].bookNo ? arr[i].bookNo + '-' : '') + (arr[i].receiptNo || arr[i].id || Date.now());
-        const url = saveImageToDrive(arr[i].image, 'Receipt_' + rno + '.jpg');
-        if (url) arr[i].image = url;
-      }
-    }
-    _trashRemovedFiles(_oldReceipts, arr, ['signature', 'image']);
-    writeObjects(sheet, arr);
-    return ContentService.createTextOutput("Receipts Sync Success");
+    const lock = LockService.getScriptLock();
+    try { lock.waitLock(30000); } catch (e2) { return ContentService.createTextOutput('Busy, try again'); }
+    try { upsertRows(ss, 'Receipts', arr); return ContentService.createTextOutput("Receipts Sync Success (merge)"); }
+    catch (err) { return ContentService.createTextOutput('Error: ' + err.message); }
+    finally { lock.releaseLock(); }
   }
 
-  // ---- บันทึกใบรับรองแทนใบเสร็จรับเงิน ----
+  // ---- บันทึกใบรับรองแทนใบเสร็จรับเงิน (เปลี่ยนเป็น upsert ไม่ล้างชีต กันข้อมูลเครื่องอื่นหาย) ----
   if (action === 'saveCertificates') {
-    let sheet = ss.getSheetByName('Certificates') || ss.insertSheet('Certificates');
     let arr = [];
     try { arr = JSON.parse(e.parameter.data); }
     catch (err) { return ContentService.createTextOutput("JSON Parse Error"); }
-
-    const _oldCerts = sheetToObjects(ss, 'Certificates');
-
-    for (let i = 0; i < arr.length; i++) {
-      // ✅ อัปโหลดรูปเอกสาร (image) ขึ้น Drive — base64 ยาวเกิน 50,000 ตัวอักษร/ช่อง จะทำให้บันทึกพัง
-      if (arr[i].image && String(arr[i].image).startsWith('data:image')) {
-        const url = saveImageToDrive(arr[i].image, 'CertDoc_' + (arr[i].certNo || arr[i].id || Date.now()) + '.jpg');
-        if (url) arr[i].image = url;
-      }
-      // อัปโหลดสลิป (array ของ Base64) ขึ้น Drive แล้วเก็บเป็น array ของ URL
-      if (Array.isArray(arr[i].slip)) {
-        arr[i].slip = arr[i].slip.map((img, idx) => {
-          if (img && String(img).startsWith('data:image')) {
-            const url = saveImageToDrive(img, 'CertSlip_' + (arr[i].certNo || arr[i].id || Date.now()) + '_' + idx + '.jpg');
-            return url || img;
-          }
-          return img;
-        });
-      }
-    }
-    _trashRemovedFiles(_oldCerts, arr, ['image', 'slip']);
-    writeObjects(sheet, arr);
-    return ContentService.createTextOutput("Certs Sync Success");
+    const lock = LockService.getScriptLock();
+    try { lock.waitLock(30000); } catch (e2) { return ContentService.createTextOutput('Busy, try again'); }
+    try { upsertRows(ss, 'Certificates', arr); return ContentService.createTextOutput("Certs Sync Success (merge)"); }
+    catch (err) { return ContentService.createTextOutput('Error: ' + err.message); }
+    finally { lock.releaseLock(); }
   }
 
   // ---- บันทึกการตั้งค่า ----
